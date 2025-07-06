@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Filament\User\Resources\ResourceResource\Pages;
+
+use App\Filament\User\Resources\ResourceResource;
+use Filament\Actions\Action;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
+use Filament\Pages\Dashboard;
+use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Contracts\Support\Htmlable;
+use Livewire\Attributes\On;
+
+class ViewResource extends ViewRecord
+{
+    protected static string $resource = ResourceResource::class;
+
+    protected static string $view = 'filament.pages.view-resource';
+
+    #[On('refresh-resource')]
+    public function refreshResource(): void
+    {
+        //
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Resource details');
+    }
+
+    public static function getNavigationIcon(): string|Htmlable|null
+    {
+        return null;
+    }
+
+    public function getTitle(): string
+    {
+        return $this->getRecord()->name;
+    }
+
+    public function getBreadcrumb(): string
+    {
+        return $this->getTitle();
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        $baseUrl = Dashboard::getUrl();
+        $breadcrumb = $this->getBreadcrumb();
+
+        return [
+            $baseUrl => 'Dashboard',
+            ...(filled($breadcrumb) ? [$breadcrumb] : []),
+        ];
+    }
+
+    public function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                $this->getResourceMetadataSection(),
+            ]);
+    }
+
+    private function getResourceMetadataSection(): Section
+    {
+        return Section::make('Resource Metadata')
+            ->collapsible()
+            ->schema([
+                TextEntry::make('type')
+                    ->translateLabel(),
+                TextEntry::make('authors')
+                    ->translateLabel(),
+                TextEntry::make('item_identifier')
+                    ->translateLabel(),
+                TextEntry::make('issued_date')
+                    ->label('Date issued')
+                    ->dateTime('Y')
+                    ->translateLabel(),
+                TextEntry::make('description')
+                    ->translateLabel(),
+                TextEntry::make('publisher')
+                    ->translateLabel(),
+            ]);
+    }
+
+    protected function getFooterActionsAlignment(): string
+    {
+        return 'center';
+    }
+
+    public function getFormActions(): array
+    {
+        return [
+            $this->getDeleteAction(),
+        ];
+    }
+
+    private function getDeleteAction(): Action
+    {
+        return Action::make('delete')
+            ->label('Remove resource from profile')
+            ->translateLabel()
+            ->size('lg')
+            ->color('danger')
+            ->action(function () {
+                $resource = $this->getRecord();
+                $resource->delete();
+                Notification::make()
+                    ->title('Resource deleted successfully')
+                    ->body("The resource <strong>\"{$resource->name}\"</strong> has been deleted successfully.")
+                    ->success()
+                    ->send();
+
+                return redirect()->route('filament.user.pages.dashboard');
+            })
+            ->requiresConfirmation();
+    }
+}

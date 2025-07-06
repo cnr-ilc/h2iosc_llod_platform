@@ -1,0 +1,107 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ontolex: <http://www.w3.org/ns/lemon/ontolex#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix lime: <http://www.w3.org/ns/lemon/lime#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+
+### Shapes for Core 
+### Shape for LexicalEntry
+
+<LexicalEntryShape> a sh:NodeShape ;
+    sh:property [
+        sh:name "Evokes";
+        sh:description "Relates a Lexical Entry to a Lexical Concept it evokes, following the sense/isLexicalizedSenseOf chain.";
+        sh:path ontolex:evokes ;
+        sh:class ontolex:LexicalConcept ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:name "Denotes";
+        sh:description "Relates a Lexical Entry to a resource it denotes (model-theoretic semantics). Equivalent to the path sense/reference.";
+        sh:path ontolex:denotes ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:severity sh:Warning ;
+    ] ;
+    sh:property [
+        sh:description "There may be at most one canonical form associated with a Lexical Entry (functional property)";
+        sh:path ontolex:canonicalForm ;
+        sh:class ontolex:Form ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+    ] ;
+    sh:property [
+        sh:name "Lexical Forms";
+        sh:description "There must be at least one lexical form associated with a Lexical Entry";
+        sh:path ontolex:lexicalForm ;
+        sh:class ontolex:Form ;
+        sh:minCount 1 ;
+    ] .
+    
+    
+
+### Shape for Form
+<FormShape> a sh:NodeShape ;
+    sh:targetClass ontolex:Form ;
+    sh:property [
+        sh:path ontolex:writtenRep ;
+        sh:datatype rdf:langString ;
+    ] ;
+    sh:property [
+        sh:path ontolex:phoneticRep ;
+        sh:datatype rdf:langString ;
+    ] .
+
+### Shape for LexicalSense
+<LexicalSenseShape> a sh:NodeShape ;
+    sh:targetClass ontolex:LexicalSense ;
+    sh:property [
+        sh:name "isSenseOf";
+        sh:description "Each Lexical Sense must be associated with exactly one Lexical Entry.";
+        sh:path ontolex:isSenseOf ;
+        sh:class ontolex:LexicalEntry ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:name "Reference";
+        sh:description "Each Lexical Sense must refer to exactly one ontology resource.";
+        sh:path ontolex:reference ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+    ] .
+
+
+### Shape for LIME
+
+<LexiconShape> a sh:NodeShape ;
+    sh:targetClass lime:Lexicon ;
+
+        sh:property [
+        sh:name "Language" ;
+        sh:description "The language of the lexical entries." ;
+        sh:path lime:language ;
+        sh:nodeKind sh:Literal ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:name "Lexical Entries" ;
+        sh:description "The lexical entries that belong to this lexicon." ;
+        sh:path lime:entry ;
+        sh:class ontolex:LexicalEntry ;
+        sh:minCount 1 ;
+    ]  ; 
+    sh:property 
+    [
+        sh:name "Lexical Entries (Datatype Property)" ; 
+        sh:description "The number of distinct lexical entries contained in the resource";
+        sh:path lime:lexicalEntries ; 
+        sh:datatype xsd:integer ; 
+        sh:maxCount 1;
+    ]
+    .

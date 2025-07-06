@@ -1,0 +1,125 @@
+@import "/vendor/filament/filament/resources/css/theme.css";
+
+@config 'tailwind.config.js';
+
+/*
+ * PAGE: IMPORT RESOURCE
+ */
+body.pllod-import-resource-page {
+    .fi-fo-field-wrp-label {
+        span {
+            @apply text-base font-medium;
+        }
+    }
+
+    .fi-fo-checkbox-list {
+        .fi-fo-checkbox-list-option-label {
+            @apply font-normal cursor-pointer;
+        }
+    }
+}
+
+/* STATS WIDGET */
+.fi-wi-stats-overview-stat {
+    @apply shadow-md;
+}
+
+/* TOPBAR */
+.fi-topbar-with-navigation {
+    >nav {
+        @apply lg:h-[6rem];
+    }
+}
+
+/* SECTION */
+.fi-section {
+    @apply ring-0 shadow-none;
+
+    .fi-icon-btn-icon {
+        @apply h-6 w-6;
+    }
+
+    .fi-section-header {
+        @apply bg-gray-200 rounded-t-lg;
+    }
+
+    &:where(.fi-collapsed) {
+        .fi-section-header {
+            @apply rounded-b-lg;
+        }
+    }
+
+    .fi-section-header-heading {
+        @apply leading-none text-lg font-medium;
+    }
+
+    .fi-fo-component-ctn {
+        @apply gap-8;
+    }
+
+    .fi-section-content-ctn {
+        @apply border-none;
+    }
+
+    .fi-section-content {
+        @apply px-6 py-8;
+    }
+}
+
+/* TABS */
+.fi-tabs {
+    @apply ring-0 shadow-none mx-0 w-fit;
+
+    .fi-tabs-item {
+        @apply text-gray-500 font-bold;
+    }
+
+    .fi-tabs-item-active {
+        @apply bg-gray-100 text-brand-600;
+    }
+}
+
+/* INFOLIST */
+.fi-in-entry-wrp-label {
+    @apply [&_span]:font-bold [&_span]:text-base;
+}
+
+/* TIPPY */
+.tippy-box[data-theme~=light] {
+    background-color: rgb(var(--gray-700)) !important;
+    color: rgb(255 255 255);
+}
+
+.tippy-box[data-theme~=light][data-placement^=top]>.tippy-arrow:before {
+    border-top-color: rgb(var(--gray-700)) !important;
+}
+
+.tippy-box[data-theme~=light][data-placement^=right]>.tippy-arrow:before {
+    border-right-color: rgb(var(--gray-700)) !important;
+}
+
+.tippy-box[data-theme~=light][data-placement^=bottom]>.tippy-arrow:before {
+    border-bottom-color: rgb(var(--gray-700)) !important;
+}
+
+.tippy-box[data-theme~=light][data-placement^=left]>.tippy-arrow:before {
+    border-left-color: rgb(var(--gray-700)) !important;
+}
+
+.fi-fo-field-centered-wrp {
+    .fi-fo-field-wrp-error-message {
+        @apply text-center;
+    }
+}
+
+/* Override the sm:grid-cols-3 in the direct child div with the grid class */
+.fi-fo-field-centered-wrp > .grid {
+    grid-template-columns: auto !important;
+}
+
+/* Apply this only at the sm breakpoint where the original sm:grid-cols-3 would take effect */
+@media (min-width: 640px) {
+    .fi-fo-field-centered-wrp > .grid {
+        grid-template-columns: auto !important;
+    }
+}

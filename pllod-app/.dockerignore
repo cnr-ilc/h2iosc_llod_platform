@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+
+# Development files
+.env.example
+.env.local
+.env.development
+.env.testing
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules (will be built in container)
+node_modules/
+
+# Vendor (will be installed in container)
+vendor/
+
+# Laravel specific
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# Testing
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# Development tools
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile.production
+
+# Build artifacts
+public/build/
+public/hot
+
+# Temporary files
+*.tmp
+*.temp 

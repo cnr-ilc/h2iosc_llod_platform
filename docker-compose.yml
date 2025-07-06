@@ -1,0 +1,130 @@
+services:
+  # MariaDB Database for Laravel
+  mariadb:
+    image: mariadb:10.11
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - llod_network
+
+  # Redis for Laravel queues and caching
+  redis:
+    image: redis:7-alpine
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - llod_network
+
+  # Laravel Application
+  laravel_app:
+    build:
+      context: .
+      dockerfile: ./docker/laravel/Dockerfile
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_laravel_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./pllod-app:/var/www/html
+      - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - llod_network
+
+  # Laravel Horizon for queue processing
+  laravel_horizon:
+    build:
+      context: .
+      dockerfile: ./docker/laravel/Dockerfile
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_laravel_horizon
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./pllod-app:/var/www/html
+      - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    depends_on:
+      - mariadb
+      - redis
+      - laravel_app
+    entrypoint: ["/usr/local/bin/horizon-entrypoint.sh"]
+    networks:
+      - llod_network
+
+  # Python RDF Validation API
+  python_api:
+    build:
+      context: ./rdf-validation-api
+      dockerfile: Dockerfile
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_python_api
+    restart: unless-stopped
+    volumes:
+      - ./rdf-validation-api:/app
+    networks:
+      - llod_network
+
+  vocbench3:
+    container_name: vocbench
+    build:
+      context: ./vocbench3-docker/13.0.0
+      args:
+        vb_version: ${VB_VERSION}
+        st_version: ${ST_VERSION}
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    ports:
+    - "127.0.0.1:1979:1979"
+    volumes:
+     - type: bind
+       source: ./vocbench3-docker/volumes/stdata
+       target: /opt/vocbench3/data
+    depends_on:
+      - graphdb
+    networks:
+      - llod_network
+
+  graphdb:
+    build:
+      context: ./vocbench3-docker/helpers/graphdb-with-st-sails
+      args:
+        vb_version: ${VB_VERSION}
+        st_version: ${ST_VERSION}
+        gdb_version: ${GDB_VERSION}
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    ports:
+     - "127.0.0.1:7200:7200"
+    volumes:
+     - type: bind
+       source: ./vocbench3-docker/volumes/gdbhome
+       target: /opt/graphdb/home
+    networks:
+      - llod_network
+
+
+volumes:
+  mariadb_data:
+  redis_data:
+
+networks:
+  llod_network:
+    driver: bridge 

@@ -1,0 +1,11 @@
+fastapi[standard]
+uvicorn==0.22.0
+python-multipart==0.0.20
+rdflib==6.3.2
+pyshacl==0.23.0
+aiohttp==3.11.18
+requests==2.32.3
+pydantic==2.11.3
+pytest==7.4.3
+httpx==0.25.2
+pytest-cov==4.1.0
