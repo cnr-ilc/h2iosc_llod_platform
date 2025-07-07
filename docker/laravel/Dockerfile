@@ -62,6 +62,10 @@ RUN chown -R www-data:www-data /var/www/html \
 
 USER www-data
 
+RUN composer install --no-interaction
+
+RUN bun install
+
 # Expose port 80
 EXPOSE 80
 

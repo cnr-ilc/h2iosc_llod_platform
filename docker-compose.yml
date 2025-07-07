@@ -8,12 +8,16 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
       - llod_network
+    healthcheck:
+      test: ["CMD", "mysql", "-u", "root", "-p${DB_ROOT_PASSWORD}", "-e", "SELECT 1"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # Redis for Laravel queues and caching
   redis:
@@ -42,8 +46,10 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
-      - mariadb
-      - redis
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - llod_network
 
@@ -61,9 +67,12 @@ services:
       - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
       - pllod-storage:/var/www/html/storage
     depends_on:
-      - mariadb
-      - redis
-      - laravel_app
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      laravel_app:
+        condition: service_started
     entrypoint: ["/usr/local/bin/horizon-entrypoint.sh"]
     networks:
       - llod_network
@@ -86,9 +95,6 @@ services:
     container_name: vocbench
     build:
       context: ./vocbench3-docker/14.0.0
-      args:
-        vb_version: ${VB_VERSION}
-        st_version: ${ST_VERSION}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     ports:
@@ -105,10 +111,6 @@ services:
   graphdb:
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
-      args:
-        vb_version: ${VB_VERSION}
-        st_version: ${ST_VERSION}
-        gdb_version: ${GDB_VERSION}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     ports:
