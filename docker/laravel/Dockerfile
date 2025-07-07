@@ -49,6 +49,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 # Copy all application files into the container
 COPY ./pllod-app/ /var/www/html/
 
+COPY .env /var/www/html/.env
+
 # Install Bun with architecture detection (before switching to www-data user)
 RUN curl -fsSL https://bun.sh/install | bash \
     && cp /root/.bun/bin/bun /usr/local/bin/bun \
