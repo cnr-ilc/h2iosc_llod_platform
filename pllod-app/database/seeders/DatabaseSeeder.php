@@ -17,17 +17,23 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Roles
-        Role::create(['name' => UserRole::SUPER_ADMIN->value]);
-        Role::create(['name' => UserRole::ADMIN->value]);
-        Role::create(['name' => UserRole::USER->value]);
+        Role::firstOrCreate(['name' => UserRole::SUPER_ADMIN->value]);
+        Role::firstOrCreate(['name' => UserRole::ADMIN->value]);
+        Role::firstOrCreate(['name' => UserRole::USER->value]);
 
         // Users
-        User::factory()->createQuietly([
-            'name' => 'Super Admin',
-            'last_name' => 'Super Admin',
-            'email' => 'superadmin@pllod.dev',
-            'password' => Hash::make('superadmin'),
-        ])->assignRole(UserRole::SUPER_ADMIN->value);
+        $superAdmin = User::firstOrCreate(
+            ['email' => 'superadmin@pllod.dev'],
+            [
+                'name' => 'Super Admin',
+                'last_name' => 'Super Admin',
+                'password' => Hash::make('superadmin'),
+            ]
+        );
+        
+        if (!$superAdmin->hasRole(UserRole::SUPER_ADMIN->value)) {
+            $superAdmin->assignRole(UserRole::SUPER_ADMIN->value);
+        }
 
         // User::factory()->createQuietly([
         //     'name' => 'Admin',
@@ -51,18 +57,22 @@ class DatabaseSeeder extends Seeder
         // ])->assignRole(UserRole::USER->value);
 
         // Settings
-        Setting::create([
-            'key' => 'score_calculation_guide_file_path',
-            'label' => 'Score Calculation Guide File',
-            'value' => '',
-            'type' => 'file',
-        ]);
+        Setting::firstOrCreate(
+            ['key' => 'score_calculation_guide_file_path'],
+            [
+                'label' => 'Score Calculation Guide File',
+                'value' => '',
+                'type' => 'file',
+            ]
+        );
 
-        Setting::create([
-            'key' => 'raccommendetions_file_path',
-            'label' => 'Raccommendetions File',
-            'value' => '',
-            'type' => 'file',
-        ]);
+        Setting::firstOrCreate(
+            ['key' => 'raccommendetions_file_path'],
+            [
+                'label' => 'Raccommendetions File',
+                'value' => '',
+                'type' => 'file',
+            ]
+        );
     }
 }

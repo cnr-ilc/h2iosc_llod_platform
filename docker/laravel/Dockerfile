@@ -27,17 +27,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Bun with architecture detection
-RUN echo "Building for platform: $TARGETPLATFORM" && \
-    if [ "$TARGETPLATFORM" = "linux/arm64" ] || [ "$TARGETPLATFORM" = "linux/arm/v7" ]; then \
-        echo "Installing Bun for ARM architecture"; \
-        curl -fsSL https://bun.sh/install | bash; \
-    else \
-        echo "Installing Bun for x86_64 architecture"; \
-        curl -fsSL https://bun.sh/install | bash; \
-    fi
-ENV PATH="/root/.bun/bin:$PATH"
-
 # Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
@@ -59,6 +48,11 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 
 # Copy all application files into the container
 COPY ./pllod-app/ /var/www/html/
+
+# Install Bun with architecture detection (before switching to www-data user)
+RUN curl -fsSL https://bun.sh/install | bash \
+    && cp /root/.bun/bin/bun /usr/local/bin/bun \
+    && chmod +x /usr/local/bin/bun
 
 # Change ownership of all files to www-data user and group
 RUN chown -R www-data:www-data /var/www/html \

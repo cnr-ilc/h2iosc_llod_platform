@@ -1,7 +1,7 @@
-FROM eclipse-temurin:17-alpine
+FROM eclipse-temurin:21-alpine
 
-ARG vb_version=13.0.0
-ARG st_version=13.0
+ARG vb_version=14.0.0
+ARG st_version=14.0
 ARG st_path=""
 
 COPY vocbench3-${vb_version}-full.zip /tmp

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+composer install --no-interaction 2>/dev/null || echo "ERROR: Failed to install Composer dependencies"
+
 # Starting Laravel Horizon initialization
 
 # Wait for database to be ready

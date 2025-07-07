@@ -85,7 +85,7 @@ services:
   vocbench3:
     container_name: vocbench
     build:
-      context: ./vocbench3-docker/13.0.0
+      context: ./vocbench3-docker/14.0.0
       args:
         vb_version: ${VB_VERSION}
         st_version: ${ST_VERSION}
