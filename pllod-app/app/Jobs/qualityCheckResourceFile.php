@@ -48,7 +48,6 @@ class qualityCheckResourceFile implements ShouldQueue
         $filePath = $this->resourceFile->getPath();
 
         try {
-            // TODO: Add vocabulary_type to the request
             $response = Http::attach(
                 'file',
                 file_get_contents($filePath),

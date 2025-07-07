@@ -91,6 +91,10 @@ class healthCheckResourceFile implements ShouldQueue
                 $this->resourceFile->can_be_opened_in_vocbench = true;
             }
 
+            if (isset($responseData['main_uri']) && !empty($responseData['main_uri'])) {
+                $this->resourceFile->graphdb_uri = $responseData['main_uri'];
+            }
+
             $this->resourceFile->validation_timestamp = now();
             $this->resourceFile->save();
         } catch (\Exception $e) {

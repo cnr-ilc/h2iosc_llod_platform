@@ -32,6 +32,10 @@ class CreateProjectSemanticTurkey implements ShouldQueue
      */
     public function handle(): void
     {
+        if (!$this->resourceFile->can_be_opened_in_vocbench) {
+            return;
+        }
+
         try {
             $adminLogin = SemanticTurkey::login(config('semanticTurkey.admin_email'), config('semanticTurkey.admin_password'));
             $adminCookie = $adminLogin['cookie'];
@@ -44,9 +48,8 @@ class CreateProjectSemanticTurkey implements ShouldQueue
             SemanticTurkey::assignProjectRolesToUser($adminCookie, $response['projectName'], $this->user->email);
 
             $this->resourceFile->update([
-                'graphdb_uri' => $response['graphURI'],
                 'st_project_name' => $response['projectName'],
-                'graphdb_repository_name' => $response['graphDBRepositoryName'],
+                'graphdb_repository_name' => $response['graphDBRepositoryName']
             ]);
         } catch (\Exception $e) {
             Log::warning('Failed to connect new project with graphdb, retrying in 10 seconds', ['error' => $e->getMessage()]);

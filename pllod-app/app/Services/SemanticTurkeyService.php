@@ -233,7 +233,7 @@ class SemanticTurkeyService
 
         Log::info('preloadResource ST response', ['body' => $preloadedResourceResponse]);
 
-        $graphUri = $preloadedResourceResponse['baseURI'] ?? 'http://'.$resource_file->name.uniqid();
+        $graphUri = $resource_file->graphdb_uri;
         $graphDBRepositoryName = $projectName.'_core';
 
         $projectData = array_merge(

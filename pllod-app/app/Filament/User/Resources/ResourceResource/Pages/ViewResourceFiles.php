@@ -136,7 +136,6 @@ class ViewResourceFiles extends ManageRelatedRecords
                 }
 
                 $newResourceFiles = $data['fileForReupload'];
-
                 $currentFile->update([
                     'graphdb_uri' => null,
                     'health_issues' => null,
@@ -151,41 +150,21 @@ class ViewResourceFiles extends ManageRelatedRecords
 
                 $currentFile = $currentFile->refresh();
 
-                Bus::batch([
-                    new ProcessReuploadedFiles($this->getRecord(), $newResourceFiles, $currentFile),
-                    new healthCheckResourceFile($currentFile),
-                ])->dispatch();
-
-                Bus::batch([
+                Bus::chain([
                     new ProcessReuploadedFiles(resource: $this->getRecord(), newResourceFilePath: $newResourceFiles, currentFile: $currentFile),
+                    new healthCheckResourceFile($currentFile),
+                    new CreateProjectSemanticTurkey($currentFile->refresh(), User::query()->find(filament()->auth()->id()))
                 ])
-                    ->allowFailures(false)
-                    ->then(function () use ($currentFile) {
-                        Bus::batch([
-                            new healthCheckResourceFile(resourceFile: $currentFile),
-                        ])
-                            ->allowFailures(false)
-                            ->then(function () use ($currentFile) {
-                                if ($currentFile->refresh()->can_be_opened_in_vocbench) {
-                                    Bus::batch([
-                                        new CreateProjectSemanticTurkey(resourceFile: $currentFile, user: User::query()->find(filament()->auth()->id())),
-                                    ])
-                                        ->allowFailures(false)
-                                        ->dispatch();
-                                }
-                            })
-                            ->dispatch();
-                    })
                     ->dispatch();
-
-                Notification::make()
-                    ->title(__('File reuploaded'))
-                    ->body(__('The file has been reuploaded successfully and will be checked again.'))
-                    ->success()
-                    ->send();
-            })->after(function () {
-                $this->dispatch('refresh-resource');
-            });
+                        Notification::make()
+                                ->title(__('File reuploaded'))
+                                ->body(__('The file has been reuploaded successfully and will be checked again.'))
+                                ->success()
+                                ->send();
+                })->after(function () 
+                {
+                    $this->dispatch('refresh-resource');
+                });
     }
 
     public function evaluateQualityAction(): Action
