@@ -5,7 +5,7 @@ namespace App\Livewire;
 use App\Enums\ResourceStatusSubmission;
 use App\Models\Resource;
 use Filament\Forms\Components\Radio;
-use Filament\Forms\Components\TextArea;
+use Filament\Forms\Components\Textarea as TextArea;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
