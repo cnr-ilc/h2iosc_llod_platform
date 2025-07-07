@@ -37,8 +37,8 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - ./pllod-app:/var/www/html
       - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - pllod-storage:/var/www/html/storage
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
@@ -58,8 +58,8 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - ./pllod-app:/var/www/html
       - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - pllod-storage:/var/www/html/storage
     depends_on:
       - mariadb
       - redis
@@ -120,10 +120,10 @@ services:
     networks:
       - llod_network
 
-
 volumes:
   mariadb_data:
   redis_data:
+  pllod-storage:
 
 networks:
   llod_network:

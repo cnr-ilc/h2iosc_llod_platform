@@ -48,12 +48,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 COPY ./docker/laravel/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
-# Create user with UID 1000 and configure Apache to run as this user
-RUN groupadd -g 1000 webuser \
-    && useradd -u 1000 -g webuser -m webuser \
-    && sed -i 's/APACHE_RUN_USER:=www-data/APACHE_RUN_USER:=webuser/' /etc/apache2/envvars \
-    && sed -i 's/APACHE_RUN_GROUP:=www-data/APACHE_RUN_GROUP:=webuser/' /etc/apache2/envvars
-
 # Create supervisor configuration for Horizon
 COPY ./docker/laravel/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
@@ -63,10 +57,19 @@ COPY ./docker/laravel/horizon-entrypoint.sh /usr/local/bin/horizon-entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/horizon-entrypoint.sh
 
-# Running as root (no USER directive)
+# Copy all application files into the container
+COPY ./pllod-app/ /var/www/html/
+
+# Change ownership of all files to www-data user and group
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+USER www-data
 
 # Expose port 80
 EXPOSE 80
 
 # Use entrypoint script
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"] 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

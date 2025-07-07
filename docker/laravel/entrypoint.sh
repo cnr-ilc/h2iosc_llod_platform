@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Add Bun to PATH for webuser
+# Add Bun to PATH for www-data
 export PATH="/root/.bun/bin:$PATH"
 
 # Install composer dependencies if vendor directory doesn't exist
@@ -51,10 +51,6 @@ fi
 if [ ! -L "public/storage" ]; then
     php artisan storage:link >/dev/null 2>&1 || echo "ERROR: Failed to create storage symlink"
 fi
-
-# Set proper ownership and permissions for Laravel directories
-chown -R webuser:webuser storage bootstrap/cache public/storage 2>/dev/null || echo "ERROR: Failed to set ownership"
-chmod -R 775 storage bootstrap/cache 2>/dev/null || echo "ERROR: Failed to set permissions"
 
 # Build frontend assets if in production
 if [ "$APP_ENV" = "production" ]; then
