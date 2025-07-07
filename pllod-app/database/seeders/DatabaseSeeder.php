@@ -65,14 +65,5 @@ class DatabaseSeeder extends Seeder
                 'type' => 'file',
             ]
         );
-
-        Setting::firstOrCreate(
-            ['key' => 'raccommendetions_file_path'],
-            [
-                'label' => 'Raccommendetions File',
-                'value' => '',
-                'type' => 'file',
-            ]
-        );
     }
 }
