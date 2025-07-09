@@ -75,7 +75,7 @@ class qualityCheckResourceFile implements ShouldQueue
                 $this->resourceFile->quality_score = $responseData['score'];
             }
 
-            if (isset($responseData['report']['suggestions']) && ! empty($responseData['report']['suggestions'])) {
+            if (isset($responseData['report']['suggestions']) && !empty($responseData['report']['suggestions'])) {
                 $this->resourceFile->quality_warnings = $responseData['report']['suggestions'];
                 unset($responseData['report']['suggestions']);
             }

@@ -36,6 +36,9 @@ class CreateProjectSemanticTurkey implements ShouldQueue
             return;
         }
 
+        $this->resourceFile->is_synchronising = true;
+        $this->resourceFile->save();
+
         try {
             $adminLogin = SemanticTurkey::login(config('semanticTurkey.admin_email'), config('semanticTurkey.admin_password'));
             $adminCookie = $adminLogin['cookie'];
@@ -49,9 +52,13 @@ class CreateProjectSemanticTurkey implements ShouldQueue
 
             $this->resourceFile->update([
                 'st_project_name' => $response['projectName'],
-                'graphdb_repository_name' => $response['graphDBRepositoryName']
+                'graphdb_repository_name' => $response['graphDBRepositoryName'],
+                'is_synchronising' => false
             ]);
         } catch (\Exception $e) {
+            $this->resourceFile->is_synchronising = false;
+            $this->resourceFile->save();
+            
             Log::warning('Failed to connect new project with graphdb, retrying in 10 seconds', ['error' => $e->getMessage()]);
             $this->release(10);
         }
