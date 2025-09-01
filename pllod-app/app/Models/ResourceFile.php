@@ -36,14 +36,14 @@ class ResourceFile extends Model
         return Number::fileSize($value, 2);
     }
 
-    public function getGraphdbUriAttribute($value): ?string
-    {
-        if ($value) {
-            return config('graphdb.host.host_url')."/resource?uri={$value}&role=context";
-        }
+    // public function getGraphdbUriAttribute($value): ?string
+    // {
+    //     if ($value) {
+    //         return config('graphdb.host.host_url')."/resource?uri={$value}&role=context";
+    //     }
 
-        return null;
-    }
+    //     return null;
+    // }
 
     /**
      * Get the full path to the file
