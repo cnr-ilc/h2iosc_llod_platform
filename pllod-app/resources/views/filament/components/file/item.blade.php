@@ -37,6 +37,7 @@
                 {{ __('Download file') }}
             </x-filament::button>
             {{ ($this->reuploadAction)(['currentFileId' => $file->id]) }}
+            <livewire:voc-bench-sync-button :file="$file" />
             <livewire:voc-bench-button :file="$file" />
         </div>
         <hr class="w-full border-gray-200">
