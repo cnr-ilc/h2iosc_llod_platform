@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\GeneralStatus;
+use App\Enums\RdfFormat;
 use App\Models\ResourceFile;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,10 +49,15 @@ class qualityCheckResourceFile implements ShouldQueue
         $filePath = $this->resourceFile->getPath();
 
         try {
+            $format = RdfFormat::toValidationAPIFormat($this->resourceFile->mime_type)->value;
+            
             $response = Http::attach(
                 'file',
                 file_get_contents($filePath),
                 basename($filePath)
+            )->attach(
+                'format',
+                $format
             )->timeout(config('app.timeout'))->post($pipelineUrl);
 
             $responseData = $response->json();
