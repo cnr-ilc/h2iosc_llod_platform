@@ -35,14 +35,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Configure Apache
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
-COPY ./docker/laravel/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
+COPY ./docker/laravel/production/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
 # Create supervisor configuration for Horizon
-COPY ./docker/laravel/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./docker/laravel/production/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy entrypoint scripts
-COPY ./docker/laravel/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY ./docker/laravel/horizon-entrypoint.sh /usr/local/bin/horizon-entrypoint.sh
+COPY ./docker/laravel/production/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY ./docker/laravel/production/horizon-entrypoint.sh /usr/local/bin/horizon-entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/horizon-entrypoint.sh
 
