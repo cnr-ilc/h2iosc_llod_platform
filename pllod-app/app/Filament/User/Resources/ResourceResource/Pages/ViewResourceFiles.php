@@ -44,6 +44,7 @@ class ViewResourceFiles extends ManageRelatedRecords
     public function getViewData(): array
     {
         $this->dispatch('refresh-voc-bench-button');
+        $this->dispatch('refresh-voc-bench-sync-button');
 
         return [
             'files' => $this->getRecord()->files,

@@ -19,10 +19,34 @@ class VocBenchSyncButton extends Component
         $this->file = $file;
     }
 
+    public function isButtonDisabled(): bool
+    {
+        return $this->file->validation_status !== \App\Enums\GeneralStatus::SUCCESS->value ||
+        ! $this->file->can_be_opened_in_vocbench ||
+        $this->file->quality_assessment_status === \App\Enums\GeneralStatus::RUNNING->value ||
+        $this->file->is_synchronising ||
+        empty($this->file->graphdb_repository_name);
+    }
+
+    public function getSyncModalId(): string
+    {
+        return "voc-bench-sync-modal-{$this->file->id}";
+    }
+
+    public function openVocBenchSyncModal(): void
+    {
+        $this->dispatch('open-modal', id: $this->getSyncModalId());
+    }
+
+    public function closeVocBenchSyncModal(): void
+    {
+        $this->dispatch('close-modal', id: $this->getSyncModalId());
+    }
+
     #[On('refresh-voc-bench-sync-button')]
     public function refreshVocBenchSyncButton(): void
     {
-        $this->file->refresh();
+        //
     }
 
     public function render(): View
@@ -85,6 +109,8 @@ class VocBenchSyncButton extends Component
         } finally {
             $this->file->is_submittable = false;
             $this->file->save();
+
+            $this->closeVocBenchSyncModal();
         }
     }
 }
