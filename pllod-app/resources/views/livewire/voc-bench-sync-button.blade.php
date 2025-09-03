@@ -16,7 +16,7 @@
         </div>
         <p class="text-center">
             <span class="font-bold text-warning-800">{{ __('Warning') }}:</span>
-            {{ __('Warning: if you proceed to sync the file with VocBench, the file will be invalidated and you will no
+            {{ __('if you proceed to sync the file with VocBench, the file will be invalidated and you will no
             longer be able to submit the resource.') }}
         </p>
         <hr class="w-full border-gray-200">
