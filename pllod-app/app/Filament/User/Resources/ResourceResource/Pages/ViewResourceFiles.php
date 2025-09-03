@@ -143,6 +143,7 @@ class ViewResourceFiles extends ManageRelatedRecords
                     'quality_result' => null,
                     'quality_warnings' => null,
                     'can_be_opened_in_vocbench' => false,
+                    'is_submittable' => false,
                     'quality_score' => null,
                     'quality_assessment_status' => null,
                     'validation_status' => GeneralStatus::RUNNING->value,
@@ -153,18 +154,17 @@ class ViewResourceFiles extends ManageRelatedRecords
                 Bus::chain([
                     new ProcessReuploadedFiles(resource: $this->getRecord(), newResourceFilePath: $newResourceFiles, currentFile: $currentFile),
                     new healthCheckResourceFile($currentFile),
-                    new CreateProjectSemanticTurkey($currentFile->refresh(), User::query()->find(filament()->auth()->id()))
+                    new CreateProjectSemanticTurkey($currentFile->refresh(), User::query()->find(filament()->auth()->id())),
                 ])
                     ->dispatch();
-                        Notification::make()
-                                ->title(__('File reuploaded'))
-                                ->body(__('The file has been reuploaded successfully and will be checked again.'))
-                                ->success()
-                                ->send();
-                })->after(function () 
-                {
-                    $this->dispatch('refresh-resource');
-                });
+                Notification::make()
+                    ->title(__('File reuploaded'))
+                    ->body(__('The file has been reuploaded successfully and will be checked again.'))
+                    ->success()
+                    ->send();
+            })->after(function () {
+                $this->dispatch('refresh-resource');
+            });
     }
 
     public function evaluateQualityAction(): Action

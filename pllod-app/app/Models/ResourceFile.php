@@ -21,6 +21,8 @@ class ResourceFile extends Model
         'validation_timestamp' => 'datetime',
         'quality_assessment_timestamp' => 'datetime',
         'can_be_opened_in_vocbench' => 'boolean',
+        'is_submittable' => 'boolean',
+        'is_synchronising' => 'boolean',
     ];
 
     /**

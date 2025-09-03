@@ -45,7 +45,7 @@ class ResourcePublication extends Component implements HasForms
                     ->rows(7),
             ])
             ->disabled(function () {
-                return ! $this->resource->can_be_submitted;
+                return ! $this->resource->can_be_submitted || $this->resource->some_resource_files_has_running_status;
             })
             ->statePath('data');
     }
@@ -55,12 +55,13 @@ class ResourcePublication extends Component implements HasForms
 
         $this->closeSubmitResourceModal();
 
-        if (! $this->resource->can_be_submitted) {
+        if (! $this->resource->can_be_submitted || $this->resource->some_resource_files_has_running_status) {
             Notification::make()
                 ->title(__('Resource cannot be submitted'))
                 ->icon('heroicon-o-x-circle')
                 ->iconColor('danger')
-                ->body(__('Your resource cannot be submitted because it has failed validation.'))
+                ->body(__('Your resource cannot be submitted because it has failed validation or contains files that are still being processed.'))
+                ->danger()
                 ->send();
 
             return;

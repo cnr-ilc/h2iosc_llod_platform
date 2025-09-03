@@ -50,13 +50,11 @@ class Resource extends Model implements Auditable
 
     public function getCanBeSubmittedAttribute(): bool
     {
-        // TODO: Check if the resource can be submitted
-        foreach ($this->files as $file) {
-            if ($file->validation_status !== GeneralStatus::SUCCESS->value) {
-                return false;
-            }
-        }
+        return $this->files->every(fn (ResourceFile $file): bool => $file->is_submittable);
+    }
 
-        return true;
+    public function getSomeResourceFilesHasRunningStatusAttribute(): bool
+    {
+        return $this->files->some(fn (ResourceFile $file): bool => $file->validation_status === GeneralStatus::RUNNING->value || $file->quality_assessment_status === GeneralStatus::RUNNING->value);
     }
 }
