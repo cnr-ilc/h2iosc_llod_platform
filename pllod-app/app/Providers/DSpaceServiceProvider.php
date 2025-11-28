@@ -2,26 +2,59 @@
 
 namespace App\Providers;
 
-use App\Services\DSpaceService;
-use GuzzleHttp\Client;
 use Illuminate\Support\ServiceProvider;
+use App\Services\DSpace\DSpaceAuthService;
+use App\Services\DSpace\DSpaceClient;
 
 class DSpaceServiceProvider extends ServiceProvider
 {
-    public function register()
+    /**
+     * Register services.
+     */
+    public function register(): void
     {
-        $this->app->singleton('dspace', function ($app) {
-            return new DSpaceService(
-                config('dspace.base_url'),
-                new Client(['verify' => false]),
+        // Merge config
+        $this->mergeConfigFrom(
+            __DIR__ . '/../../config/dspace.php',
+            'dspace'
+        );
+
+        // Registra DSpaceAuthService come singleton
+        $this->app->singleton(DSpaceAuthService::class, function ($app) {
+            return new DSpaceAuthService();
+        });
+
+        // Registra DSpaceClient come singleton
+        $this->app->singleton(DSpaceClient::class, function ($app) {
+            return new DSpaceClient(
+                $app->make(DSpaceAuthService::class)
             );
         });
+
+        // Alias per comodità
+        $this->app->alias(DSpaceClient::class, 'dspace');
     }
 
-    public function boot()
+    /**
+     * Bootstrap services.
+     */
+    public function boot(): void
     {
+        // Pubblica il file di configurazione
         $this->publishes([
-            __DIR__.'/../config/dspace.php' => config_path('dspace.php'),
+            __DIR__ . '/../../config/dspace.php' => config_path('dspace.php'),
         ], 'dspace-config');
+    }
+
+    /**
+     * Get the services provided by the provider.
+     */
+    public function provides(): array
+    {
+        return [
+            DSpaceAuthService::class,
+            DSpaceClient::class,
+            'dspace',
+        ];
     }
 }

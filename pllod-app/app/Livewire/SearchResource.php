@@ -87,6 +87,7 @@ class SearchResource extends Component implements HasForms
         }
 
         $this->loading = true;
+
         DSpace::login();
         $itemByMetadata = DSpace::findItemsByMetadata([
             'key' => 'dc.identifier.uri',
@@ -121,10 +122,12 @@ class SearchResource extends Component implements HasForms
             return;
         }
 
-        if (! in_array(config('app.env'), ['local', 'development'])) {
-            $currentUserEmail = filament()->auth()->user()->email;
+        if (! \in_array(app()->environment(), ['local', 'development'])) {
+            /** @var User $currentUser */
+            $currentUser = filament()->auth()->user();
+            $currentUserEmail = $currentUser->email;
 
-            if ($submitter !== $currentUserEmail && ! filament()->auth()->user()->hasRole('admin')) {
+            if ($submitter !== $currentUserEmail && ! $currentUser->isAdminOrSuperAdmin()) {
                 Notification::make()
                     ->title(__('You are not the submitter of this resource'))
                     ->body(__('You can only import resources that you have submitted on DSpace.'))
@@ -299,7 +302,7 @@ class SearchResource extends Component implements HasForms
     private function getFiles(array $bitstreams): Collection
     {
         return collect($bitstreams)->map(function ($bitstream) {
-            if (in_array($bitstream['name'], self::BANNED_FILES_NAMES)) {
+            if (\in_array($bitstream['name'], self::BANNED_FILES_NAMES)) {
                 return null;
             }
 
