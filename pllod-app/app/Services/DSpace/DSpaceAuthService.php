@@ -36,7 +36,7 @@ class DSpaceAuthService
      */
     public function getToken(): string
     {
-        $cachedData = Cache::store('redis')->get($this->cacheKey);
+        $cachedData = Cache::get($this->cacheKey);
 
         if ($cachedData) {
             $tokenData = json_decode($cachedData, true);
@@ -191,7 +191,7 @@ class DSpaceAuthService
             'expires_at' => now()->addMinutes(30)->timestamp,
         ];
 
-        Cache::store('redis')->put(
+        Cache::put(
             $this->cacheKey,
             json_encode($tokenData),
             now()->addMinutes($this->cacheTtl)
@@ -199,7 +199,7 @@ class DSpaceAuthService
 
         // Salva anche il CSRF token se fornito (utile per le chiamate successive)
         if ($csrfToken) {
-            Cache::store('redis')->put(
+            Cache::put(
                 $this->csrfCacheKey,
                 $csrfToken,
                 now()->addMinutes($this->cacheTtl)
@@ -228,7 +228,7 @@ class DSpaceAuthService
      */
     public function getCurrentCsrfToken(): string
     {
-        $cached = Cache::store('redis')->get($this->csrfCacheKey);
+        $cached = Cache::get($this->csrfCacheKey);
 
         if ($cached) {
             return $cached;
@@ -242,7 +242,7 @@ class DSpaceAuthService
      */
     public function logout(): void
     {
-        $cachedData = Cache::store('redis')->get($this->cacheKey);
+        $cachedData = Cache::get($this->cacheKey);
 
         if ($cachedData) {
             $tokenData = json_decode($cachedData, true);
@@ -265,8 +265,8 @@ class DSpaceAuthService
             }
         }
 
-        Cache::store('redis')->forget($this->cacheKey);
-        Cache::store('redis')->forget($this->csrfCacheKey);
+        Cache::forget($this->cacheKey);
+        Cache::forget($this->csrfCacheKey);
     }
 
     /**
@@ -274,8 +274,8 @@ class DSpaceAuthService
      */
     public function forceRefresh(): string
     {
-        Cache::store('redis')->forget($this->cacheKey);
-        Cache::store('redis')->forget($this->csrfCacheKey);
+        Cache::forget($this->cacheKey);
+        Cache::forget($this->csrfCacheKey);
 
         return $this->login();
     }

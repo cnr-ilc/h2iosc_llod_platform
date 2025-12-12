@@ -2,14 +2,16 @@
 
 namespace App\Services\DSpace;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\Response;
-use Illuminate\Http\Client\PendingRequest;
 use GuzzleHttp\Cookie\CookieJar;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DSpaceClient
 {
     private DSpaceAuthService $authService;
+
     private string $baseUrl;
 
     public function __construct(DSpaceAuthService $authService)
@@ -149,6 +151,7 @@ class DSpaceClient
     public function isAuthenticated(): bool
     {
         $status = $this->getAuthStatus();
+
         return $status['authenticated'] ?? false;
     }
 
@@ -174,5 +177,25 @@ class DSpaceClient
     public function getBaseUrl(): string
     {
         return $this->baseUrl;
+    }
+
+    /**
+     * Ottiene un item per PID
+     */
+    public function findItemByPid(string $pid): array
+    {
+        $response = $this->get('api/pid/find', ['id' => $pid]);
+
+        if (! $response->successful()) {
+            Log::error('DSpace: Error finding item by PID', [
+                'pid' => $pid,
+                'error' => $response->body(),
+                'trace' => $response->getTraceAsString(),
+            ]);
+
+            return [];
+        }
+
+        return $response->json();
     }
 }
