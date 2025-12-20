@@ -27,7 +27,7 @@ class SearchResource extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    private const BANNED_FILES_NAMES = ['license.txt'];
+    private const array BANNED_FILES_NAMES = ['license.txt'];
 
     public ?string $itemIdentifier;
 
