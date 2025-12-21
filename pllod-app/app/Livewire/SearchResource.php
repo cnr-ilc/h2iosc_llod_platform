@@ -147,7 +147,7 @@ class SearchResource extends Component implements HasForms
         }
 
         $parsedMetadata = $this->parseMetadata($item['metadata']);
-        $files = $this->getFiles($item['bitstreams']);
+        $files = $this->getFiles($item);
 
         $resource = [
             'name' => $item['name'],
@@ -244,41 +244,39 @@ class SearchResource extends Component implements HasForms
 
     private function parseMetadata(array $metadata): array
     {
-        $parsedMetadata = array_reduce($metadata, function ($carry, $item) {
-            if ($item['key'] === 'dc.contributor.author') {
-                $carry['authors'][] = Str::of($item['value'])
-                    ->explode(',')
-                    ->map(fn ($author) => trim($author))
-                    ->join(' ');
-            }
+        $parsedMetadata = [];
 
-            if ($item['key'] === 'dc.type') {
-                $carry['type'][] = $item['value'];
-            }
+        // Authors
+        if (isset($metadata['dc.contributor.author'])) {
+            $parsedMetadata['authors'] = collect($metadata['dc.contributor.author'])
+                ->pluck('value')
+                ->map(fn ($author) => Str::of($author)->explode(',')->map(fn ($part) => trim($part))->join(' '))
+                ->join(', ');
+        }
 
-            if ($item['key'] === 'dc.identifier.uri') {
-                $carry['item_identifier'] = $item['value'];
-            }
+        // Type
+        if (isset($metadata['dc.type'])) {
+            $parsedMetadata['type'] = collect($metadata['dc.type'])->pluck('value')->join(', ');
+        }
 
-            if ($item['key'] === 'dc.publisher') {
-                $carry['publisher'] = $item['value'];
-            }
+        // Identifier URI
+        if (isset($metadata['dc.identifier.uri'][0]['value'])) {
+            $parsedMetadata['item_identifier'] = $metadata['dc.identifier.uri'][0]['value'];
+        }
 
-            if ($item['key'] === 'dc.date.issued') {
-                $carry['issued_date'] = $item['value'];
-            }
+        // Publisher
+        if (isset($metadata['dc.publisher'][0]['value'])) {
+            $parsedMetadata['publisher'] = $metadata['dc.publisher'][0]['value'];
+        }
 
-            if ($item['key'] === 'dc.description') {
-                $carry['description'] = $item['value'];
-            }
+        // Issued Date
+        if (isset($metadata['dc.date.issued'][0]['value'])) {
+            $parsedMetadata['issued_date'] = $metadata['dc.date.issued'][0]['value'];
+        }
 
-            return $carry;
-        }, []);
-
-        foreach ($parsedMetadata as $key => $value) {
-            if (\is_array($value)) {
-                $parsedMetadata[$key] = implode(', ', $value);
-            }
+        // Description
+        if (isset($metadata['dc.description'][0]['value'])) {
+            $parsedMetadata['description'] = $metadata['dc.description'][0]['value'];
         }
 
         return $parsedMetadata;
@@ -301,15 +299,14 @@ class SearchResource extends Component implements HasForms
             ->match('/\(([^)]*@[^)]*)\)/');
     }
 
-    private function getFiles(array $bitstreams): Collection
+    private function getFiles(array $item): Collection
     {
-        return collect($bitstreams)->map(function ($bitstream) {
-            if (\in_array($bitstream['name'], self::BANNED_FILES_NAMES)) {
-                return null;
-            }
+        $bundles = data_get($item, '_embedded.bundles', []);
 
-            return $bitstream;
-        })->filter();
+        return collect($bundles)
+            ->filter(fn ($bundle) => $bundle['name'] === 'ORIGINAL')
+            ->flatMap(fn ($bundle) => data_get($bundle, '_embedded.bitstreams._embedded.bitstreams', []))
+            ->filter(fn ($bitstream) => ! \in_array($bitstream['name'], self::BANNED_FILES_NAMES));
     }
 
     public function render(): View
