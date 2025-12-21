@@ -284,26 +284,21 @@ class SearchResource extends Component implements HasForms
         return $parsedMetadata;
     }
 
-    // TODO: This is a temporary solution to get the submitter email from the metadata
     private function getSubmitter(array $metadata): string
     {
-        if (! isset($metadata) || ! \is_array($metadata)) {
+        if (! isset($metadata['dc.description.provenance']) || ! \is_array($metadata['dc.description.provenance'])) {
             return '';
         }
-
-        $provenanceArray = \array_filter($metadata, function ($item) {
-            return $item['key'] === 'dc.description.provenance' && Str::startsWith($item['value'], 'Submitted by');
+        $provenanceArray = \array_filter($metadata['dc.description.provenance'], function ($item) {
+            return isset($item['value']) && Str::startsWith($item['value'], 'Submitted by');
         });
-
-        if (! \count($provenanceArray)) {
+        if (empty($provenanceArray)) {
             return '';
         }
-
         $lastProvenance = \array_pop($provenanceArray);
-        $submitter = Str::of($lastProvenance['value'])
-            ->match('/\((.*?@.*?)\)/');
 
-        return $submitter ?? '';
+        return (string) Str::of($lastProvenance['value'])
+            ->match('/\(([^)]*@[^)]*)\)/');
     }
 
     private function getFiles(array $bitstreams): Collection
