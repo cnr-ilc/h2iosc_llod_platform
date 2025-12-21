@@ -244,9 +244,9 @@ class ProcessFiles implements ShouldQueue
             'filename' => $filename,
             'size' => $bitstream['sizeBytes'],
             'mime_type' => $mimeType,
-            'description' => $bitstream['description'] ?? null,
-            'checksum' => $bitstream['checkSum']['value'] ?? null,
-            'checksum_algorithm' => $bitstream['checkSum']['checkSumAlgorithm'] ?? null,
+            'description' => data_get($bitstream, 'metadata.dc.description.0.value'),
+            'checksum' => data_get($bitstream, 'checkSum.value'),
+            'checksum_algorithm' => data_get($bitstream, 'checkSum.checkSumAlgorithm'),
         ];
     }
 
@@ -259,9 +259,10 @@ class ProcessFiles implements ShouldQueue
 
     protected function getFile(array $bitstream): array
     {
-        $response = $this->client->get('https://dspace-clarin-it.ilc.cnr.it/repository/rest'.$bitstream['retrieveLink']);
+        $contentUrl = data_get($bitstream, '_links.content.href');
+        $response = $this->client->get($contentUrl);
         $mimeType = $response->getHeaderLine('Content-Type');
-        $filename = $bitstream['name'] ?? basename($bitstream['retrieveLink']);
+        $filename = $bitstream['name'] ?? basename($contentUrl);
 
         return [
             'content' => $response->getBody()->getContents(),
