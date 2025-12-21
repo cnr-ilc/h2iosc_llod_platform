@@ -88,26 +88,31 @@ class SearchResource extends Component implements HasForms
 
         $this->loading = true;
 
-        DSpace::login();
-        $itemByMetadata = DSpace::findItemsByMetadata([
-            'key' => 'dc.identifier.uri',
-            'language' => '*',
-            'value' => $validated['itemIdentifier'],
-        ], ['expand' => 'all']);
-        DSpace::logout();
+        try {
+            $item = DSpace::findItemByPid($validated['itemIdentifier'], true);
+        } catch (\Throwable $th) {
+            Notification::make()
+                ->title(__('Error'))
+                ->body(fn () => app()->isLocal() ? $th->getMessage() : __('An error occurred while searching for the item, please try again later.'))
+                ->danger()
+                ->send();
+            $this->loading = false;
+            $this->results = null;
 
-        if (! $itemByMetadata || ! $itemByMetadata[0]) {
+            return;
+        }
+
+        if (! $item) {
             Notification::make()
                 ->title(__('Item not found'))
                 ->body(__('The item identifier is invalid or not found in DSpace'))
                 ->danger()
                 ->send();
             $this->loading = false;
+            $this->results = null;
 
             return;
         }
-
-        $item = $itemByMetadata[0];
 
         $submitter = $this->getSubmitter($item['metadata']);
 
@@ -118,6 +123,7 @@ class SearchResource extends Component implements HasForms
                 ->danger()
                 ->send();
             $this->loading = false;
+            $this->results = null;
 
             return;
         }
@@ -134,6 +140,7 @@ class SearchResource extends Component implements HasForms
                     ->danger()
                     ->send();
                 $this->loading = false;
+                $this->results = null;
 
                 return;
             }
@@ -152,7 +159,7 @@ class SearchResource extends Component implements HasForms
         ];
 
         // Debugging
-        if (app()->environment() === 'local') {
+        if (app()->isLocal()) {
             Notification::make()
                 ->body(__("The resource submitter email is: <strong>{$submitter}</strong>"))
                 ->info()
@@ -269,7 +276,7 @@ class SearchResource extends Component implements HasForms
         }, []);
 
         foreach ($parsedMetadata as $key => $value) {
-            if (is_array($value)) {
+            if (\is_array($value)) {
                 $parsedMetadata[$key] = implode(', ', $value);
             }
         }
@@ -280,19 +287,19 @@ class SearchResource extends Component implements HasForms
     // TODO: This is a temporary solution to get the submitter email from the metadata
     private function getSubmitter(array $metadata): string
     {
-        if (! isset($metadata) || ! is_array($metadata)) {
+        if (! isset($metadata) || ! \is_array($metadata)) {
             return '';
         }
 
-        $provenanceArray = array_filter($metadata, function ($item) {
+        $provenanceArray = \array_filter($metadata, function ($item) {
             return $item['key'] === 'dc.description.provenance' && Str::startsWith($item['value'], 'Submitted by');
         });
 
-        if (! count($provenanceArray)) {
+        if (! \count($provenanceArray)) {
             return '';
         }
 
-        $lastProvenance = array_pop($provenanceArray);
+        $lastProvenance = \array_pop($provenanceArray);
         $submitter = Str::of($lastProvenance['value'])
             ->match('/\((.*?@.*?)\)/');
 

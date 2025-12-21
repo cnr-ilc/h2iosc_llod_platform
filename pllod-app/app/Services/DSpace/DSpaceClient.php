@@ -51,6 +51,20 @@ class DSpaceClient
     }
 
     /**
+     * Perform a GET request to an absolute URL (does not require CSRF).
+     *
+     * Use this when you have a complete URL (e.g., from _links in DSpace responses).
+     *
+     * @param  string  $absoluteUrl  The complete URL
+     * @param  array<string, mixed>  $query  Optional query parameters
+     * @return Response|PromiseInterface The HTTP response
+     */
+    public function getAbsolute(string $absoluteUrl, array $query = []): Response|PromiseInterface
+    {
+        return $this->baseRequest()->get($absoluteUrl, $query);
+    }
+
+    /**
      * Perform a POST request (requires CSRF).
      *
      * @param  string  $endpoint  The API endpoint
@@ -249,9 +263,10 @@ class DSpaceClient
      * Find an item by its PID.
      *
      * @param  string  $pid  The persistent identifier
+     * @param  bool  $includeFiles  Whether to include files in the response
      * @return array<string, mixed> The item data or empty array if not found
      */
-    public function findItemByPid(string $pid): array
+    public function findItemByPid(string $pid, bool $includeFiles = false): array
     {
         /** @var Response $response */
         $response = $this->get('api/pid/find', ['id' => $pid]);
@@ -265,6 +280,20 @@ class DSpaceClient
             return [];
         }
 
-        return $response->json();
+        $item = $response->json();
+
+        if ($includeFiles && isset($item['_links']['bundles']['href'])) {
+            $bundlesUrl = $item['_links']['bundles']['href'];
+
+            /** @var Response $bundlesResponse */
+            $bundlesResponse = $this->getAbsolute($bundlesUrl, ['embed' => 'bitstreams']);
+
+            if ($bundlesResponse->successful()) {
+                $bundlesData = $bundlesResponse->json();
+                $item['_embedded']['bundles'] = $bundlesData['_embedded']['bundles'] ?? [];
+            }
+        }
+
+        return $item;
     }
 }
