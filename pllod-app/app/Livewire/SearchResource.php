@@ -29,6 +29,8 @@ class SearchResource extends Component implements HasForms
 
     private const array BANNED_FILES_NAMES = ['license.txt'];
 
+    private const string FILE_TYPE = 'ORIGINAL';
+
     public ?string $itemIdentifier;
 
     public ?Collection $results = null;
@@ -304,7 +306,7 @@ class SearchResource extends Component implements HasForms
         $bundles = data_get($item, '_embedded.bundles', []);
 
         return collect($bundles)
-            ->filter(fn ($bundle) => $bundle['name'] === 'ORIGINAL')
+            ->filter(fn ($bundle) => $bundle['name'] === self::FILE_TYPE)
             ->flatMap(fn ($bundle) => data_get($bundle, '_embedded.bitstreams._embedded.bitstreams', []))
             ->filter(fn ($bitstream) => ! \in_array($bitstream['name'], self::BANNED_FILES_NAMES));
     }
