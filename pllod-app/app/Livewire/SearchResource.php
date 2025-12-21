@@ -99,7 +99,6 @@ class SearchResource extends Component implements HasForms
                 ->danger()
                 ->send();
             $this->loading = false;
-            $this->results = null;
 
             return;
         }
@@ -111,7 +110,6 @@ class SearchResource extends Component implements HasForms
                 ->danger()
                 ->send();
             $this->loading = false;
-            $this->results = null;
 
             return;
         }
@@ -125,7 +123,6 @@ class SearchResource extends Component implements HasForms
                 ->danger()
                 ->send();
             $this->loading = false;
-            $this->results = null;
 
             return;
         }
@@ -142,7 +139,6 @@ class SearchResource extends Component implements HasForms
                     ->danger()
                     ->send();
                 $this->loading = false;
-                $this->results = null;
 
                 return;
             }
