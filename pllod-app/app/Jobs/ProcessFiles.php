@@ -35,15 +35,21 @@ class ProcessFiles implements ShouldQueue
     protected array $processedFiles = [];
 
     /** @var array<string, bool> Flipped array for O(1) lookup */
-    protected array $acceptedCompressedMimeTypeMap;
+    protected array $acceptedZipMimeTypeMap;
+
+    /** @var array<string, bool> Flipped array for O(1) lookup */
+    protected array $acceptedGzipMimeTypeMap;
 
     /** @var array<string, bool> Flipped array for O(1) lookup */
     protected array $acceptedMimeTypeMap;
 
-    protected array $acceptedCompressedMimeType = [
+    protected array $acceptedZipMimeType = [
         'application/zip',
-        'application/gzip',
         'application/x-compressed',
+    ];
+
+    protected array $acceptedGzipMimeType = [
+        'application/gzip',
         'application/x-gzip',
     ];
 
@@ -74,7 +80,8 @@ class ProcessFiles implements ShouldQueue
         $this->processedFiles = [];
 
         // Pre-compute flipped arrays for O(1) lookups
-        $this->acceptedCompressedMimeTypeMap = array_flip($this->acceptedCompressedMimeType);
+        $this->acceptedZipMimeTypeMap = array_flip($this->acceptedZipMimeType);
+        $this->acceptedGzipMimeTypeMap = array_flip($this->acceptedGzipMimeType);
         $this->acceptedMimeTypeMap = array_flip($this->acceptedMimeType);
     }
 
@@ -152,10 +159,17 @@ class ProcessFiles implements ShouldQueue
         $mimeType = $file['mime_type'];
         Log::debug("📋 [ProcessFiles] File MIME type: {$mimeType}");
 
-        if ($this->isCompressedMimeType($mimeType)) {
-            Log::info("📦 [ProcessFiles] Processing compressed file: {$file['name']}");
+        if ($this->isZipMimeType($mimeType)) {
+            Log::info("📦 [ProcessFiles] Processing ZIP archive: {$file['name']}");
             $this->tempPath = 'temp/'.uniqid('zip_', true).'.zip';
             $this->handleZipFile($file, $resourceFile);
+
+            return;
+        }
+
+        if ($this->isGzipMimeType($mimeType)) {
+            Log::info("📦 [ProcessFiles] Processing GZIP file: {$file['name']}");
+            $this->handleGzipFile($file, $resourceFile);
 
             return;
         }
@@ -186,13 +200,23 @@ class ProcessFiles implements ShouldQueue
     }
 
     /**
-     * Check if MIME type is a compressed format (O(1) lookup)
+     * Check if MIME type is a ZIP format (O(1) lookup)
      */
-    private function isCompressedMimeType(string $mimeType): bool
+    private function isZipMimeType(string $mimeType): bool
     {
         $normalized = $this->normalizeMimeType($mimeType);
 
-        return isset($this->acceptedCompressedMimeTypeMap[$normalized]);
+        return isset($this->acceptedZipMimeTypeMap[$normalized]);
+    }
+
+    /**
+     * Check if MIME type is a GZIP format (O(1) lookup)
+     */
+    private function isGzipMimeType(string $mimeType): bool
+    {
+        $normalized = $this->normalizeMimeType($mimeType);
+
+        return isset($this->acceptedGzipMimeTypeMap[$normalized]);
     }
 
     /**
@@ -265,6 +289,54 @@ class ProcessFiles implements ShouldQueue
         $zip->close();
 
         $this->cleanupTemporaryFile();
+    }
+
+    /**
+     * Handle GZIP compressed files (.gz)
+     * GZIP files contain a single compressed file, not an archive
+     */
+    private function handleGzipFile(array $file, array $bitstream): void
+    {
+        $gzipFilename = $file['name'];
+        Log::debug("📦 [ProcessFiles] Decompressing GZIP file: {$gzipFilename}");
+
+        // Decompress the content
+        $decompressedContent = @gzdecode($file['content']);
+
+        if ($decompressedContent === false) {
+            Log::error("❌ [ProcessFiles] Failed to decompress GZIP file: {$gzipFilename}");
+
+            return;
+        }
+
+        // Remove .gz extension to get the original filename
+        $originalFilename = preg_replace('/\.gz$/i', '', $gzipFilename);
+        $finalFilename = $this->getUniqueFilename($originalFilename);
+
+        Log::debug("📦 [ProcessFiles] Decompressed to: {$finalFilename} (".strlen($decompressedContent).' bytes)');
+
+        // Save the decompressed file
+        $this->saveFile($finalFilename, $decompressedContent);
+
+        // Get MIME type of the decompressed file
+        $filePath = $this->dirName.'/'.$finalFilename;
+        $mimeType = Storage::mimeType($filePath);
+        $size = Storage::size($filePath);
+
+        Log::debug("📋 [ProcessFiles] Decompressed file MIME type: {$mimeType}");
+
+        // Check if the decompressed file has an accepted MIME type
+        if (! $this->isAcceptedMimeType($mimeType)) {
+            Log::warning("⏭️ [ProcessFiles] Deleting decompressed file with unsupported MIME type: {$mimeType}");
+            Storage::delete($filePath);
+
+            return;
+        }
+
+        Log::info("✅ [ProcessFiles] Successfully processed GZIP file: {$finalFilename}");
+
+        $bitstream['sizeBytes'] = $size;
+        $this->handleSingleFile($finalFilename, $bitstream, $mimeType);
     }
 
     private function saveTemporaryZip(string $content): void
