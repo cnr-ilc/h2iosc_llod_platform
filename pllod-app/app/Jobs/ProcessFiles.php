@@ -7,12 +7,14 @@ use App\Models\Resource;
 use App\Models\ResourceFile;
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
@@ -28,22 +30,30 @@ class ProcessFiles implements ShouldQueue
 
     protected Client $client;
 
-    protected string $tempPath;
+    protected string $tempPath = '';
 
     protected array $processedFiles = [];
 
+    /** @var array<string, bool> Flipped array for O(1) lookup */
+    protected array $acceptedCompressedMimeTypeMap;
+
+    /** @var array<string, bool> Flipped array for O(1) lookup */
+    protected array $acceptedMimeTypeMap;
+
     protected array $acceptedCompressedMimeType = [
         'application/zip',
+        'application/x-compressed',
+        'application/x-gzip',
     ];
 
     protected array $acceptedMimeType = [
-        'application/rdf+xml',    // Standard RDF/XML
-        'text/turtle',            // Turtle format (TTL)
-        'application/n-triples',  // N-Triples format
-        'application/n-quads',    // N-Quads format
-        'application/trig',       // TriG format
-        'application/ld+json',    // JSON-LD
-        'text/n3',           // Notation3 (N3)
+        'application/rdf+xml',
+        'text/turtle',
+        'application/n-triples',
+        'application/n-quads',
+        'application/trig',
+        'application/ld+json',
+        'text/n3',
     ];
 
     protected array $excludedDirectories = [
@@ -61,6 +71,10 @@ class ProcessFiles implements ShouldQueue
         $this->dirName = $this->resource->id.date('Y-m-d_H-i-s');
         $this->resourceFiles = $resourceFiles;
         $this->processedFiles = [];
+
+        // Pre-compute flipped arrays for O(1) lookups
+        $this->acceptedCompressedMimeTypeMap = array_flip($this->acceptedCompressedMimeType);
+        $this->acceptedMimeTypeMap = array_flip($this->acceptedMimeType);
     }
 
     /**
@@ -68,82 +82,168 @@ class ProcessFiles implements ShouldQueue
      */
     public function handle(): void
     {
+        $resourceId = $this->resource->id;
+        $fileCount = count($this->resourceFiles);
+
+        Log::info("📁 [ProcessFiles] Starting job for resource #{$resourceId} with {$fileCount} file(s)");
+
         $this->client = new Client(['verify' => false]);
 
+        Log::info("🔄 [ProcessFiles] Setting status to PENDING for resource #{$resourceId}");
         $this->resource->update(['status_import' => ResourceStatusImport::PENDING]);
 
         $this->createBaseDirectory();
 
         try {
-            foreach ($this->resourceFiles as $resourceFile) {
-                $this->processFile($resourceFile);
-            }
+            $this->processAllFiles();
 
             if ($this->processedFiles) {
-                $this->saveProcessedFile();
+                $this->saveProcessedFiles();
             } else {
+                Log::warning("⚠️ [ProcessFiles] No valid files processed for resource #{$resourceId}");
                 $this->cleanBaseDirectory();
             }
 
+            Log::info("✅ [ProcessFiles] Setting status to IMPORTED for resource #{$resourceId}");
             $this->resource->update(['status_import' => ResourceStatusImport::IMPORTED]);
 
-            return;
+            Log::info("🎉 [ProcessFiles] Job completed successfully for resource #{$resourceId}");
 
         } catch (Exception $e) {
+            Log::error("❌ [ProcessFiles] Job failed for resource #{$resourceId}", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             $this->resource->update(['status_import' => ResourceStatusImport::FAILED]);
+        }
+    }
+
+    /**
+     * Process all resource files
+     */
+    private function processAllFiles(): void
+    {
+        foreach ($this->resourceFiles as $index => $resourceFile) {
+            $fileNumber = $index + 1;
+            $totalFiles = count($this->resourceFiles);
+            Log::info("📄 [ProcessFiles] Processing file {$fileNumber}/{$totalFiles}");
+
+            $this->processFile($resourceFile);
+        }
+    }
+
+    private function processFile(array $resourceFile): void
+    {
+        $fileName = $resourceFile['name'] ?? 'unknown';
+        Log::debug("🔍 [ProcessFiles] Fetching file: {$fileName}");
+
+        try {
+            $file = $this->getFile($resourceFile);
+        } catch (GuzzleException $e) {
+            Log::error("❌ [ProcessFiles] Failed to fetch file: {$fileName}", [
+                'error' => $e->getMessage(),
+            ]);
 
             return;
         }
-    }
 
-    private function processFile($resourceFile): void
-    {
-        $file = $this->getFile($resourceFile);
-        if (in_array($file['mime_type'], $this->acceptedCompressedMimeType)) {
-            $this->tempPath = 'temp/'.uniqid().'.zip';
+        $mimeType = $file['mime_type'];
+        Log::debug("📋 [ProcessFiles] File MIME type: {$mimeType}");
+
+        if ($this->isCompressedMimeType($mimeType)) {
+            Log::info("📦 [ProcessFiles] Processing compressed file: {$file['name']}");
+            $this->tempPath = 'temp/'.uniqid('zip_', true).'.zip';
             $this->handleZipFile($file, $resourceFile);
-        } elseif (in_array($file['mime_type'], $this->acceptedMimeType)) {
-            $this->saveFile($file['name'], $file['content']);
-            $this->handleSingleFile($file['name'], $resourceFile, $file['mime_type']);
+
+            return;
         }
+
+        if ($this->isAcceptedMimeType($mimeType)) {
+            Log::info("📝 [ProcessFiles] Processing single file: {$file['name']}");
+            $this->saveFile($file['name'], $file['content']);
+            $this->handleSingleFile($file['name'], $resourceFile, $mimeType);
+
+            return;
+        }
+
+        Log::warning("⏭️ [ProcessFiles] Skipping file with unsupported MIME type: {$mimeType}");
     }
 
-    private function saveProcessedFile(): void
+    /**
+     * Check if MIME type is a compressed format (O(1) lookup)
+     */
+    private function isCompressedMimeType(string $mimeType): bool
     {
-        foreach ($this->processedFiles as $currentItem) {
-            ResourceFile::create([
-                'resource_id' => $this->resource->id,
-                'path' => $currentItem['path'],
-                'name' => $currentItem['filename'],
-                'size' => $currentItem['size'],
-                'mime_type' => $currentItem['mime_type'],
-                'description' => $currentItem['description'],
-                'hash_md5' => $currentItem['checksum'],
-            ]);
-        }
+        return isset($this->acceptedCompressedMimeTypeMap[$mimeType]);
+    }
+
+    /**
+     * Check if MIME type is accepted (O(1) lookup)
+     */
+    private function isAcceptedMimeType(string $mimeType): bool
+    {
+        return isset($this->acceptedMimeTypeMap[$mimeType]);
+    }
+
+    /**
+     * Save all processed files using batch insert for better performance
+     */
+    private function saveProcessedFiles(): void
+    {
+        $count = count($this->processedFiles);
+        Log::info("💾 [ProcessFiles] Saving {$count} processed file(s) to database");
+
+        $records = array_map(fn (array $item) => [
+            'resource_id' => $this->resource->id,
+            'path' => $item['path'],
+            'name' => $item['filename'],
+            'size' => $item['size'],
+            'mime_type' => $item['mime_type'],
+            'description' => $item['description'],
+            'hash_md5' => $item['checksum'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $this->processedFiles);
+
+        // Batch insert for better performance
+        ResourceFile::insert($records);
+
+        Log::info("✅ [ProcessFiles] Successfully saved {$count} file record(s)");
     }
 
     private function cleanBaseDirectory(): void
     {
+        Log::debug("🧹 [ProcessFiles] Checking if base directory needs cleanup: {$this->dirName}");
+
         if (count(Storage::allFiles($this->dirName)) === 0) {
+            Log::info("🗑️ [ProcessFiles] Removing empty directory: {$this->dirName}");
             Storage::deleteDirectory($this->dirName);
         }
     }
 
     private function createBaseDirectory(): void
     {
+        Log::debug("📂 [ProcessFiles] Creating base directory: {$this->dirName}");
         Storage::disk('local')->makeDirectory($this->dirName);
     }
 
     private function handleZipFile(array $file, array $bitstream): void
     {
+        Log::debug("📦 [ProcessFiles] Saving temporary ZIP file: {$this->tempPath}");
         $this->saveTemporaryZip($file['content']);
 
         $zip = $this->openZipFile();
-        if ($zip) {
-            $this->extractZipContents($zip, $bitstream);
-            $zip->close();
+        if ($zip === null) {
+            Log::error('❌ [ProcessFiles] Failed to open ZIP file');
+            $this->cleanupTemporaryFile();
+
+            return;
         }
+
+        Log::info("📦 [ProcessFiles] ZIP contains {$zip->numFiles} entries");
+        $this->extractZipContents($zip, $bitstream);
+        $zip->close();
 
         $this->cleanupTemporaryFile();
     }
@@ -155,18 +255,27 @@ class ProcessFiles implements ShouldQueue
 
     private function openZipFile(): ?ZipArchive
     {
-        $zip = new ZipArchive;
-
         if (! Storage::exists($this->tempPath)) {
+            Log::error("❌ [ProcessFiles] Temporary ZIP file not found: {$this->tempPath}");
+
             return null;
         }
 
+        $zip = new ZipArchive;
+
         try {
-            if ($zip->open(Storage::disk('local')->path($this->tempPath)) === true) {
+            $result = $zip->open(Storage::disk('local')->path($this->tempPath));
+            if ($result === true) {
+                Log::debug('✅ [ProcessFiles] Successfully opened ZIP file');
+
                 return $zip;
             }
+
+            Log::error("❌ [ProcessFiles] Failed to open ZIP, error code: {$result}");
         } catch (Exception $e) {
-            return null;
+            Log::error('❌ [ProcessFiles] Exception opening ZIP file', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return null;
@@ -185,44 +294,92 @@ class ProcessFiles implements ShouldQueue
 
     private function extractZipContents(ZipArchive $zip, array $bitstream): void
     {
+        $extractedCount = 0;
+        $skippedCount = 0;
+
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
-            if ($this->isDirectory($filename) || $this->isExcludedPath($filename)) {
+
+            if ($this->isDirectory($filename)) {
                 continue;
             }
 
-            $baseFilename = basename($filename);
-            $finalFilename = $this->getUniqueFilename($baseFilename);
-
-            $fileContent = $zip->getFromIndex($i);
-
-            $this->saveFile($finalFilename, $fileContent);
-
-            $mimeType = Storage::mimeType($this->dirName.'/'.$finalFilename);
-            $size = Storage::size($this->dirName.'/'.$finalFilename);
-
-            if (! in_array($mimeType, $this->acceptedMimeType)) {
-                Storage::delete($this->dirName.'/'.$finalFilename);
+            if ($this->isExcludedPath($filename)) {
+                Log::debug("⏭️ [ProcessFiles] Skipping excluded path: {$filename}");
+                $skippedCount++;
 
                 continue;
             }
 
-            $bitstream['sizeBytes'] = $size;
-            $this->handleSingleFile($finalFilename, $bitstream, $mimeType);
+            $extractedFile = $this->extractSingleZipEntry($zip, $i, $filename, $bitstream);
+            if ($extractedFile) {
+                $extractedCount++;
+            } else {
+                $skippedCount++;
+            }
         }
+
+        Log::info("📊 [ProcessFiles] ZIP extraction complete: {$extractedCount} extracted, {$skippedCount} skipped");
+    }
+
+    /**
+     * Extract a single entry from the ZIP file
+     */
+    private function extractSingleZipEntry(
+        ZipArchive $zip,
+        int $index,
+        string $filename,
+        array $bitstream
+    ): bool {
+        $baseFilename = basename($filename);
+        $finalFilename = $this->getUniqueFilename($baseFilename);
+
+        $fileContent = $zip->getFromIndex($index);
+        if ($fileContent === false) {
+            Log::warning("⚠️ [ProcessFiles] Failed to read content for: {$filename}");
+
+            return false;
+        }
+
+        $this->saveFile($finalFilename, $fileContent);
+
+        $filePath = $this->dirName.'/'.$finalFilename;
+        $mimeType = Storage::mimeType($filePath);
+        $size = Storage::size($filePath);
+
+        if (! $this->isAcceptedMimeType($mimeType)) {
+            Log::debug("⏭️ [ProcessFiles] Deleting file with unsupported MIME type: {$mimeType}");
+            Storage::delete($filePath);
+
+            return false;
+        }
+
+        Log::debug("✅ [ProcessFiles] Extracted: {$finalFilename} ({$mimeType}, {$size} bytes)");
+
+        $bitstream['sizeBytes'] = $size;
+        $this->handleSingleFile($finalFilename, $bitstream, $mimeType);
+
+        return true;
     }
 
     private function getUniqueFilename(string $filename): string
     {
-        $counter = 1;
+        $basePath = $this->dirName.'/';
+
+        if (! Storage::disk('local')->exists($basePath.$filename)) {
+            return $filename;
+        }
+
         $originalName = pathinfo($filename, PATHINFO_FILENAME);
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $counter = 1;
 
-        $newFilename = $filename;
-        while (Storage::disk('local')->exists($this->dirName.'/'.$newFilename)) {
-            $newFilename = $originalName.'_'.$counter.'.'.$extension;
+        do {
+            $newFilename = "{$originalName}_{$counter}.{$extension}";
             $counter++;
-        }
+        } while (Storage::disk('local')->exists($basePath.$newFilename));
+
+        Log::debug("📝 [ProcessFiles] Renamed duplicate file: {$filename} -> {$newFilename}");
 
         return $newFilename;
     }
@@ -234,7 +391,9 @@ class ProcessFiles implements ShouldQueue
 
     private function saveFile(string $filename, string $content): void
     {
-        Storage::disk('local')->put($this->dirName.'/'.$filename, $content);
+        $path = $this->dirName.'/'.$filename;
+        Storage::disk('local')->put($path, $content);
+        Log::debug("💾 [ProcessFiles] Saved file: {$path}");
     }
 
     private function handleSingleFile(string $filename, array $bitstream, string $mimeType): void
@@ -242,7 +401,7 @@ class ProcessFiles implements ShouldQueue
         $this->processedFiles[] = [
             'path' => $this->dirName.'/'.$filename,
             'filename' => $filename,
-            'size' => $bitstream['sizeBytes'],
+            'size' => $bitstream['sizeBytes'] ?? 0,
             'mime_type' => $mimeType,
             'description' => data_get($bitstream, 'metadata.dc.description.0.value'),
             'checksum' => data_get($bitstream, 'checkSum.value'),
@@ -252,17 +411,30 @@ class ProcessFiles implements ShouldQueue
 
     private function cleanupTemporaryFile(): void
     {
+        if (empty($this->tempPath)) {
+            return;
+        }
+
         if (Storage::exists($this->tempPath)) {
+            Log::debug("🧹 [ProcessFiles] Cleaning up temporary file: {$this->tempPath}");
             Storage::delete($this->tempPath);
         }
     }
 
+    /**
+     * @throws GuzzleException
+     */
     protected function getFile(array $bitstream): array
     {
         $contentUrl = data_get($bitstream, '_links.content.href');
+        $filename = $bitstream['name'] ?? basename($contentUrl);
+
+        Log::debug("🌐 [ProcessFiles] Downloading file from: {$contentUrl}");
+
         $response = $this->client->get($contentUrl);
         $mimeType = $response->getHeaderLine('Content-Type');
-        $filename = $bitstream['name'] ?? basename($contentUrl);
+
+        Log::debug("✅ [ProcessFiles] Downloaded: {$filename} ({$mimeType})");
 
         return [
             'content' => $response->getBody()->getContents(),
