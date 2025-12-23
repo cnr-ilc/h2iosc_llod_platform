@@ -42,6 +42,7 @@ class ProcessFiles implements ShouldQueue
 
     protected array $acceptedCompressedMimeType = [
         'application/zip',
+        'application/gzip',
         'application/x-compressed',
         'application/x-gzip',
     ];
@@ -171,11 +172,27 @@ class ProcessFiles implements ShouldQueue
     }
 
     /**
+     * Normalize MIME type by removing charset and other parameters
+     * e.g., 'application/gzip;charset=UTF-8' becomes 'application/gzip'
+     */
+    private function normalizeMimeType(string $mimeType): string
+    {
+        $semicolonPos = strpos($mimeType, ';');
+        if ($semicolonPos !== false) {
+            return trim(substr($mimeType, 0, $semicolonPos));
+        }
+
+        return trim($mimeType);
+    }
+
+    /**
      * Check if MIME type is a compressed format (O(1) lookup)
      */
     private function isCompressedMimeType(string $mimeType): bool
     {
-        return isset($this->acceptedCompressedMimeTypeMap[$mimeType]);
+        $normalized = $this->normalizeMimeType($mimeType);
+
+        return isset($this->acceptedCompressedMimeTypeMap[$normalized]);
     }
 
     /**
@@ -183,7 +200,9 @@ class ProcessFiles implements ShouldQueue
      */
     private function isAcceptedMimeType(string $mimeType): bool
     {
-        return isset($this->acceptedMimeTypeMap[$mimeType]);
+        $normalized = $this->normalizeMimeType($mimeType);
+
+        return isset($this->acceptedMimeTypeMap[$normalized]);
     }
 
     /**
