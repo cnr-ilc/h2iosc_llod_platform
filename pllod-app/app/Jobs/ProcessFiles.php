@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
@@ -53,6 +54,10 @@ class ProcessFiles implements ShouldQueue
         'application/x-gzip',
     ];
 
+    protected array $acceptedFileExtension = [
+        'ttl',
+    ];
+
     protected array $acceptedMimeType = [
         'application/rdf+xml',
         'text/turtle',
@@ -70,6 +75,7 @@ class ProcessFiles implements ShouldQueue
         '.git',
         'node_modules',
         '.svn',
+        'vendor',
     ];
 
     public function __construct(Resource $resource, array $resourceFiles)
@@ -174,7 +180,7 @@ class ProcessFiles implements ShouldQueue
             return;
         }
 
-        if ($this->isAcceptedMimeType($mimeType)) {
+        if ($this->isAcceptedMimeType($mimeType) || $this->isAcceptedFileExtension($file['name'])) {
             Log::info("📝 [ProcessFiles] Processing single file: {$file['name']}");
             $this->saveFile($file['name'], $file['content']);
             $this->handleSingleFile($file['name'], $resourceFile, $mimeType);
@@ -227,6 +233,16 @@ class ProcessFiles implements ShouldQueue
         $normalized = $this->normalizeMimeType($mimeType);
 
         return isset($this->acceptedMimeTypeMap[$normalized]);
+    }
+
+    /**
+     * Check if file extension is accepted
+     */
+    private function isAcceptedFileExtension(string $filename): bool
+    {
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        return \in_array($extension, $this->acceptedFileExtension);
     }
 
     /**
@@ -523,12 +539,19 @@ class ProcessFiles implements ShouldQueue
         Log::debug("🌐 [ProcessFiles] Downloading file from: {$contentUrl}");
 
         $response = $this->client->getAbsolute($contentUrl);
-        $mimeType = $response->header('Content-Type');
+
+        $content = $response->body();
+        $tempDir = storage_path('app/temp');
+        File::ensureDirectoryExists($tempDir);
+        $tempPath = storage_path("app/temp/{$filename}");
+        File::put($tempPath, $content);
+        $mimeType = File::mimeType($tempPath);
+        File::delete($tempPath);
 
         Log::debug("✅ [ProcessFiles] Downloaded: {$filename} ({$mimeType})");
 
         return [
-            'content' => $response->getBody()->getContents(),
+            'content' => $content,
             'mime_type' => $mimeType,
             'name' => $filename,
         ];
