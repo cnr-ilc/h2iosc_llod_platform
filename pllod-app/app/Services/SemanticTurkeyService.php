@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\RdfFormat;
 use App\Models\ResourceFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -225,7 +226,13 @@ class SemanticTurkeyService
     {
         $projectName = $resource_file->name.'_'.uniqid(); // TODO: improve name of project
 
-        $formatFile = $this->getParserFormatForFileName($cookies, $resource_file->name)['result'];
+        Log::info('createRemoteAccessProject starting', [
+            'resource_file_id' => $resource_file->id,
+            'resource_file_name' => $resource_file->name,
+            'project_name' => $projectName
+        ]);
+
+        $formatFile = RdfFormat::toSTFormatName($resource_file->mime_type);
 
         Log::info('getParserFormatForFileName ST response', ['body' => $formatFile]);
 
@@ -250,13 +257,29 @@ class SemanticTurkeyService
             ]
         );
 
+        Log::info('createRemoteAccessProject sending request', [
+            'url' => sprintf('%s/%s/%s', $this->baseUrl, self::SERVICE_PATH, self::CREATE_PROJECT_PATH),
+            'project_data' => $projectData,
+            'cookie_header' => $this->getCookieToString($cookies)
+        ]);
+
         $response = Http::asForm()
             ->withHeaders(['Cookie' => $this->getCookieToString($cookies)])
             ->post(sprintf('%s/%s/%s', $this->baseUrl, self::SERVICE_PATH, self::CREATE_PROJECT_PATH), $projectData);
 
-        Log::info('createRemoteAccessProject ST response', ['body' => $response]);
+        Log::info('createRemoteAccessProject ST response', [
+            'status_code' => $response->status(),
+            'successful' => $response->successful(),
+            'headers' => $response->headers(),
+            'body' => $response->body()
+        ]);
 
         if (! $response->successful()) {
+            Log::error('createRemoteAccessProject failed', [
+                'status_code' => $response->status(),
+                'error_body' => $response->body(),
+                'project_data' => $projectData
+            ]);
             return ['error' => 'Failed to create project: '.$response->body()];
         }
 

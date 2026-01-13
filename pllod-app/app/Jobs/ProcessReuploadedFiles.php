@@ -30,12 +30,15 @@ class ProcessReuploadedFiles implements ShouldQueue
 
     protected array $acceptedMimeType = [
         'application/rdf+xml',    // Standard RDF/XML
+        'text/xml',               // XML detected as text/xml (common for RDF files)
+        'application/xml',        // Alternative XML MIME type
         'text/turtle',            // Turtle format (TTL)
         'application/n-triples',  // N-Triples format
         'application/n-quads',    // N-Quads format
         'application/trig',       // TriG format
         'application/ld+json',    // JSON-LD
         'text/n3',                // Notation3 (N3)
+        'text/plain',             // Some RDF formats detected as plain text
     ];
 
     public function __construct(Resource $resource, string $newResourceFilePath, ResourceFile $currentFile)

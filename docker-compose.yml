@@ -4,7 +4,7 @@ services:
     image: mariadb:10.11
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_mariadb
-    restart: unless-stopped
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_DATABASE}
@@ -26,7 +26,7 @@ services:
     image: redis:7-alpine
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_redis
-    restart: unless-stopped
+    restart: always
     volumes:
       - redis_data:/data
     networks:
@@ -36,15 +36,16 @@ services:
   laravel_app:
     build:
       context: .
-      dockerfile: ./docker/laravel/Dockerfile
+      dockerfile: ./docker/laravel/production/Dockerfile
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_app
-    restart: unless-stopped
+    restart: always
     working_dir: /var/www/html
     volumes:
-      - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./docker/laravel/production/php.ini:/usr/local/etc/php/conf.d/custom.ini
       - pllod-storage:/var/www/html/storage
+      - .env:/var/www/html/.env
     ports:
       - "127.0.0.1:${LARAVEL_PORT:-8080}:80"
     depends_on:
@@ -59,15 +60,16 @@ services:
   laravel_horizon:
     build:
       context: .
-      dockerfile: ./docker/laravel/Dockerfile
+      dockerfile: ./docker/laravel/production/Dockerfile
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_horizon
-    restart: unless-stopped
+    restart: always
     working_dir: /var/www/html
     volumes:
-      - ./docker/laravel/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      - ./docker/laravel/production/php.ini:/usr/local/etc/php/conf.d/custom.ini
       - pllod-storage:/var/www/html/storage
+      - .env:/var/www/html/.env
     depends_on:
       mariadb:
         condition: service_healthy
@@ -87,7 +89,7 @@ services:
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_python_api
-    restart: unless-stopped
+    restart: always
     volumes:
       - ./rdf-validation-api:/app
     networks:
@@ -95,6 +97,7 @@ services:
 
   vocbench3:
     container_name: vocbench
+    restart: always
     build:
       context: ./vocbench3-docker/14.0.0
       platforms:
@@ -111,6 +114,7 @@ services:
       - llod_network
 
   graphdb:
+    restart: always
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
       platforms:

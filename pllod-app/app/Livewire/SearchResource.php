@@ -27,7 +27,9 @@ class SearchResource extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    private const BANNED_FILES_NAMES = ['license.txt'];
+    private const array BANNED_FILES_NAMES = ['license.txt'];
+
+    private const string FILE_TYPE = 'ORIGINAL';
 
     public ?string $itemIdentifier;
 
@@ -87,15 +89,21 @@ class SearchResource extends Component implements HasForms
         }
 
         $this->loading = true;
-        DSpace::login();
-        $itemByMetadata = DSpace::findItemsByMetadata([
-            'key' => 'dc.identifier.uri',
-            'language' => '*',
-            'value' => $validated['itemIdentifier'],
-        ], ['expand' => 'all']);
-        DSpace::logout();
 
-        if (! $itemByMetadata || ! $itemByMetadata[0]) {
+        try {
+            $item = DSpace::findItemByPid($validated['itemIdentifier'], true);
+        } catch (\Throwable $th) {
+            Notification::make()
+                ->title(__('Error'))
+                ->body(fn () => app()->isLocal() ? $th->getMessage() : __('An error occurred while searching for the item, please try again later.'))
+                ->danger()
+                ->send();
+            $this->loading = false;
+
+            return;
+        }
+
+        if (! $item) {
             Notification::make()
                 ->title(__('Item not found'))
                 ->body(__('The item identifier is invalid or not found in DSpace'))
@@ -105,8 +113,6 @@ class SearchResource extends Component implements HasForms
 
             return;
         }
-
-        $item = $itemByMetadata[0];
 
         $submitter = $this->getSubmitter($item['metadata']);
 
@@ -121,10 +127,12 @@ class SearchResource extends Component implements HasForms
             return;
         }
 
-        if (! in_array(config('app.env'), ['local', 'development'])) {
-            $currentUserEmail = filament()->auth()->user()->email;
+        if (! \in_array(app()->environment(), ['local', 'development'])) {
+            /** @var User $currentUser */
+            $currentUser = filament()->auth()->user();
+            $currentUserEmail = $currentUser->email;
 
-            if ($submitter !== $currentUserEmail && ! filament()->auth()->user()->hasRole('admin')) {
+            if ($submitter !== $currentUserEmail && ! $currentUser->isAdminOrSuperAdmin()) {
                 Notification::make()
                     ->title(__('You are not the submitter of this resource'))
                     ->body(__('You can only import resources that you have submitted on DSpace.'))
@@ -137,7 +145,7 @@ class SearchResource extends Component implements HasForms
         }
 
         $parsedMetadata = $this->parseMetadata($item['metadata']);
-        $files = $this->getFiles($item['bitstreams']);
+        $files = $this->getFiles($item);
 
         $resource = [
             'name' => $item['name'],
@@ -149,7 +157,7 @@ class SearchResource extends Component implements HasForms
         ];
 
         // Debugging
-        if (app()->environment() === 'local') {
+        if (app()->isLocal()) {
             Notification::make()
                 ->body(__("The resource submitter email is: <strong>{$submitter}</strong>"))
                 ->info()
@@ -234,77 +242,69 @@ class SearchResource extends Component implements HasForms
 
     private function parseMetadata(array $metadata): array
     {
-        $parsedMetadata = array_reduce($metadata, function ($carry, $item) {
-            if ($item['key'] === 'dc.contributor.author') {
-                $carry['authors'][] = Str::of($item['value'])
-                    ->explode(',')
-                    ->map(fn ($author) => trim($author))
-                    ->join(' ');
-            }
+        $parsedMetadata = [];
 
-            if ($item['key'] === 'dc.type') {
-                $carry['type'][] = $item['value'];
-            }
+        // Authors
+        if (isset($metadata['dc.contributor.author'])) {
+            $parsedMetadata['authors'] = collect($metadata['dc.contributor.author'])
+                ->pluck('value')
+                ->map(fn ($author) => Str::of($author)->explode(',')->map(fn ($part) => trim($part))->join(' '))
+                ->join(', ');
+        }
 
-            if ($item['key'] === 'dc.identifier.uri') {
-                $carry['item_identifier'] = $item['value'];
-            }
+        // Type
+        if (isset($metadata['dc.type'])) {
+            $parsedMetadata['type'] = collect($metadata['dc.type'])->pluck('value')->join(', ');
+        }
 
-            if ($item['key'] === 'dc.publisher') {
-                $carry['publisher'] = $item['value'];
-            }
+        // Identifier URI
+        if (isset($metadata['dc.identifier.uri'][0]['value'])) {
+            $parsedMetadata['item_identifier'] = $metadata['dc.identifier.uri'][0]['value'];
+        }
 
-            if ($item['key'] === 'dc.date.issued') {
-                $carry['issued_date'] = $item['value'];
-            }
+        // Publisher
+        if (isset($metadata['dc.publisher'][0]['value'])) {
+            $parsedMetadata['publisher'] = $metadata['dc.publisher'][0]['value'];
+        }
 
-            if ($item['key'] === 'dc.description') {
-                $carry['description'] = $item['value'];
-            }
+        // Issued Date
+        if (isset($metadata['dc.date.issued'][0]['value'])) {
+            $parsedMetadata['issued_date'] = $metadata['dc.date.issued'][0]['value'];
+        }
 
-            return $carry;
-        }, []);
-
-        foreach ($parsedMetadata as $key => $value) {
-            if (is_array($value)) {
-                $parsedMetadata[$key] = implode(', ', $value);
-            }
+        // Description
+        if (isset($metadata['dc.description'][0]['value'])) {
+            $parsedMetadata['description'] = $metadata['dc.description'][0]['value'];
         }
 
         return $parsedMetadata;
     }
 
-    // TODO: This is a temporary solution to get the submitter email from the metadata
     private function getSubmitter(array $metadata): string
     {
-        if (! isset($metadata) || ! is_array($metadata)) {
+        if (! isset($metadata['dc.description.provenance']) || ! \is_array($metadata['dc.description.provenance'])) {
             return '';
         }
-
-        $provenanceArray = array_filter($metadata, function ($item) {
-            return $item['key'] === 'dc.description.provenance' && Str::startsWith($item['value'], 'Submitted by');
+        $provenanceArray = \array_filter($metadata['dc.description.provenance'], function ($item) {
+            return isset($item['value']) && Str::startsWith($item['value'], 'Submitted by');
         });
-
-        if (! count($provenanceArray)) {
+        if (empty($provenanceArray)) {
             return '';
         }
+        $lastProvenance = \array_pop($provenanceArray);
 
-        $lastProvenance = array_pop($provenanceArray);
-        $submitter = Str::of($lastProvenance['value'])
-            ->match('/\((.*?@.*?)\)/');
-
-        return $submitter ?? '';
+        return (string) Str::of($lastProvenance['value'])
+            ->match('/\(([^)]*@[^)]*)\)/');
     }
 
-    private function getFiles(array $bitstreams): Collection
+    private function getFiles(array $item): Collection
     {
-        return collect($bitstreams)->map(function ($bitstream) {
-            if (in_array($bitstream['name'], self::BANNED_FILES_NAMES)) {
-                return null;
-            }
+        $bundles = data_get($item, '_embedded.bundles', []);
 
-            return $bitstream;
-        })->filter();
+        return collect($bundles)
+            ->filter(fn ($bundle) => $bundle['name'] === self::FILE_TYPE)
+            ->flatMap(fn ($bundle) => data_get($bundle, '_embedded.bitstreams._embedded.bitstreams', []))
+            ->filter(fn ($bitstream) => ! \in_array($bitstream['name'], self::BANNED_FILES_NAMES));
     }
 
     public function render(): View

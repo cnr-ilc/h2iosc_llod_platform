@@ -1,4 +1,4 @@
-FROM php:8.3-apache
+FROM php:8.4-apache
 
 # Set working directory
 WORKDIR /var/www/html
@@ -35,21 +35,19 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Configure Apache
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
-COPY ./docker/laravel/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
+COPY ./docker/laravel/production/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 
 # Create supervisor configuration for Horizon
-COPY ./docker/laravel/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./docker/laravel/production/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy entrypoint scripts
-COPY ./docker/laravel/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY ./docker/laravel/horizon-entrypoint.sh /usr/local/bin/horizon-entrypoint.sh
+COPY ./docker/laravel/production/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY ./docker/laravel/production/horizon-entrypoint.sh /usr/local/bin/horizon-entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/horizon-entrypoint.sh
 
 # Copy all application files into the container
 COPY ./pllod-app/ /var/www/html/
-
-COPY .env /var/www/html/.env
 
 # Install Bun with architecture detection (before switching to www-data user)
 RUN curl -fsSL https://bun.sh/install | bash \

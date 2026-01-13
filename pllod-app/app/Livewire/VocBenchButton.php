@@ -16,6 +16,12 @@ class VocBenchButton extends Component
         $this->file = $file;
     }
 
+    public function isButtonDisabled(): bool
+    {
+        return $this->file->validation_status !== \App\Enums\GeneralStatus::SUCCESS->value ||
+        ! $this->file->can_be_opened_in_vocbench || $this->file->quality_assessment_status === \App\Enums\GeneralStatus::RUNNING->value;
+    }
+
     #[On('refresh-voc-bench-button')]
     public function refreshVocBenchButton(): void
     {
@@ -25,21 +31,6 @@ class VocBenchButton extends Component
     public function render(): View
     {
         return view('livewire.voc-bench-button');
-    }
-
-    private function getModalId(): string
-    {
-        return "voc-bench-modal-{$this->file->id}";
-    }
-
-    public function openVocBenchModal(): void
-    {
-        $this->dispatch('open-modal', id: $this->getModalId());
-    }
-
-    public function closeVocBenchModal(): void
-    {
-        $this->dispatch('close-modal', id: $this->getModalId());
     }
 
     public function openVocBench(): void
@@ -81,8 +72,6 @@ class VocBenchButton extends Component
         $redirectUrl = $this->buildVocBenchAuthUrl($tokenEncoded);
 
         $this->dispatch("pllod-vocbench-redirect-uri-{$this->file->id}", $redirectUrl);
-
-        $this->closeVocBenchModal();
     }
 
     private function buildVocBenchAuthUrl(string $token): string

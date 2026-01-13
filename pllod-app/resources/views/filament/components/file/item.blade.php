@@ -1,6 +1,16 @@
 @props(['file'])
 
-<x-filament::section collapsible heading="{!! $file->name !!}">
+@php
+$heading = $file->name;
+if (!$file->is_submittable) {
+$heading = $file->name . ' - ' . __('<span class="text-red-600 font-semibold">Edited</span>');
+}
+@endphp
+
+<x-filament::section collapsible>
+    <x-slot name="heading">
+        {!! $heading !!}
+    </x-slot>
     <div class="flex flex-col gap-8">
         <div class="flex flex-col gap-4">
             <h5 class="text-lg font-bold">{{ __('File metadata') }}</h5>
@@ -13,10 +23,10 @@
                 <p class="text-gray-900">{{ $file->size }}</p>
             </div>
             @if ($file->description)
-                <div class="flex gap-2 items-center text-base">
-                    <p class="text-gray-600">{{ __('Description') }}:</p>
-                    <p class="text-gray-900">{{ $file->description }}</p>
-                </div>
+            <div class="flex gap-2 items-center text-base">
+                <p class="text-gray-600">{{ __('Description') }}:</p>
+                <p class="text-gray-900">{{ $file->description }}</p>
+            </div>
             @endif
             <div class="flex gap-2 items-center text-base">
                 <p class="text-gray-600">{{ __('MD5') }}:</p>
@@ -24,19 +34,15 @@
             </div>
         </div>
         @if (!empty($file->validation_status))
-            <x-file.health :file="$file" />
+        <x-file.health :file="$file" />
         @endif
         <div class="flex gap-4 items-center justify-center flex-wrap">
-            <x-filament::button
-                size="lg"
-                outlined
-                tag="a" 
-                href="{{ route('file.download', $file->id) }}"
-                target="_blank"
-                icon="heroicon-o-document-arrow-down">
+            <x-filament::button size="lg" outlined tag="a" href="{{ route('file.download', $file->id) }}"
+                target="_blank" icon="heroicon-o-document-arrow-down">
                 {{ __('Download file') }}
             </x-filament::button>
             {{ ($this->reuploadAction)(['currentFileId' => $file->id]) }}
+            <livewire:voc-bench-sync-button :file="$file" />
             <livewire:voc-bench-button :file="$file" />
         </div>
         <hr class="w-full border-gray-200">

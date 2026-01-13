@@ -31,6 +31,8 @@ return new class extends Migration
             $table->json('quality_warnings')->nullable(); // array of strings
             $table->json('quality_score')->nullable(); // JSON object
             $table->boolean('can_be_opened_in_vocbench')->default(false);
+            $table->boolean('is_submittable')->default(true);
+            $table->boolean('is_synchronising')->default(false);
             $table->timestamp('validation_timestamp')->nullable();
             $table->timestamp('quality_assessment_timestamp')->nullable();
             $table->enum('validation_status', GeneralStatus::values())->default(GeneralStatus::RUNNING->value);
