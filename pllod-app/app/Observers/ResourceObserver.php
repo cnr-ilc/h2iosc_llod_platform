@@ -33,13 +33,13 @@ class ResourceObserver
             ->toArray();
 
         DeleteProjectSemanticTurkey::dispatch($filesData);
-
-        try {
-            $firstFile = $resource->files()->first();
-            Log::info('Deleting resource files folder: '.dirname($firstFile->path));
-            Storage::disk('local')->deleteDirectory(dirname($firstFile->path));
-        } catch (\Throwable $th) {
-            Log::error('Error deleting resource files: '.$th->getMessage());
+        if ($firstFile = $resource->files()->first()) {
+            try {
+                Log::info('Deleting resource files folder: '.dirname($firstFile->path));
+                Storage::disk('local')->deleteDirectory(dirname($firstFile->path));
+            } catch (\Throwable $th) {
+                Log::error('Error deleting resource files: '.$th->getMessage());
+            }
         }
     }
 

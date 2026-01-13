@@ -84,4 +84,36 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(Submission::class)->orderBy('created_at', 'desc');
     }
+
+    /**
+     * Check if the user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(UserRole::ADMIN->value);
+    }
+
+    /**
+     * Check if the user is a super admin.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(UserRole::SUPER_ADMIN->value);
+    }
+
+    /**
+     * Check if the user is an admin or super admin.
+     */
+    public function isAdminOrSuperAdmin(): bool
+    {
+        return $this->isAdmin() || $this->isSuperAdmin();
+    }
+
+    /**
+     * Check if the user is a user.
+     */
+    public function isUser(): bool
+    {
+        return $this->hasRole(UserRole::USER->value);
+    }
 }

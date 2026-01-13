@@ -17,6 +17,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AuthPanelProvider extends PanelProvider
@@ -33,6 +34,8 @@ class AuthPanelProvider extends PanelProvider
             ->darkMode(false)
             ->login()
             ->registration()
+            ->brandLogo(Vite::asset('resources/images/brand-logo.png'))
+            ->brandLogoHeight('75px')
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
                 fn (): View => view('filament.components.socialite-logins'),
