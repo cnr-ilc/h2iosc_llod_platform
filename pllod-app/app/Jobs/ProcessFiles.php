@@ -5,8 +5,8 @@ namespace App\Jobs;
 use App\Enums\ResourceStatusImport;
 use App\Models\Resource;
 use App\Models\ResourceFile;
+use App\Services\DSpace\DSpaceClient;
 use Exception;
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
@@ -28,7 +28,7 @@ class ProcessFiles implements ShouldQueue
 
     protected array $resourceFiles;
 
-    protected Client $client;
+    protected DSpaceClient $client;
 
     protected string $tempPath = '';
 
@@ -95,7 +95,7 @@ class ProcessFiles implements ShouldQueue
 
         Log::info("📁 [ProcessFiles] Starting job for resource #{$resourceId} with {$fileCount} file(s)");
 
-        $this->client = new Client(['verify' => false]);
+        $this->client = app(DSpaceClient::class);
 
         Log::info("🔄 [ProcessFiles] Setting status to PENDING for resource #{$resourceId}");
         $this->resource->update(['status_import' => ResourceStatusImport::PENDING]);
@@ -522,8 +522,8 @@ class ProcessFiles implements ShouldQueue
 
         Log::debug("🌐 [ProcessFiles] Downloading file from: {$contentUrl}");
 
-        $response = $this->client->get($contentUrl);
-        $mimeType = $response->getHeaderLine('Content-Type');
+        $response = $this->client->getAbsolute($contentUrl);
+        $mimeType = $response->header('Content-Type');
 
         Log::debug("✅ [ProcessFiles] Downloaded: {$filename} ({$mimeType})");
 
