@@ -62,9 +62,15 @@ RUN chown -R www-data:www-data /var/www/html \
 
 USER www-data
 
-RUN composer install --no-interaction
+# Install composer dependencies without running scripts (Vite manifest doesn't exist yet)
+RUN composer install --no-interaction --no-scripts
 
+# Install and build frontend assets first
 RUN bun install
+RUN bun run build
+
+# Now run composer scripts (package:discover) after Vite manifest exists
+RUN composer run-script post-autoload-dump
 
 # Expose port 80
 EXPOSE 80
