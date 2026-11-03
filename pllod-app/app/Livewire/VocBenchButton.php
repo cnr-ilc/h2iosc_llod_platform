@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Enums\GeneralStatus;
 use App\Models\ResourceFile;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -18,8 +19,8 @@ class VocBenchButton extends Component
 
     public function isButtonDisabled(): bool
     {
-        return $this->file->validation_status !== \App\Enums\GeneralStatus::SUCCESS->value ||
-        ! $this->file->can_be_opened_in_vocbench || $this->file->quality_assessment_status === \App\Enums\GeneralStatus::RUNNING->value;
+        return $this->file->validation_status !== GeneralStatus::SUCCESS->value ||
+        ! $this->file->can_be_opened_in_vocbench || $this->file->quality_assessment_status === GeneralStatus::RUNNING->value;
     }
 
     #[On('refresh-voc-bench-button')]

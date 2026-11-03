@@ -4,12 +4,12 @@ namespace App\Filament\User\Resources\ResourceResource\Pages;
 
 use App\Filament\User\Resources\ResourceResource;
 use Filament\Actions\Action;
-use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\On;
 
@@ -17,7 +17,7 @@ class ViewResource extends ViewRecord
 {
     protected static string $resource = ResourceResource::class;
 
-    protected static string $view = 'filament.pages.view-resource';
+    protected string $view = 'filament.pages.view-resource';
 
     #[On('refresh-resource')]
     public function refreshResource(): void
@@ -56,10 +56,10 @@ class ViewResource extends ViewRecord
         ];
     }
 
-    public function infolist(Infolist $infolist): Infolist
+    public function infolist(Schema $schema): Schema
     {
-        return $infolist
-            ->schema([
+        return $schema
+            ->components([
                 $this->getResourceMetadataSection(),
             ]);
     }
@@ -67,6 +67,7 @@ class ViewResource extends ViewRecord
     private function getResourceMetadataSection(): Section
     {
         return Section::make('Resource Metadata')
+            ->columnSpanFull()
             ->collapsible()
             ->schema([
                 TextEntry::make('type')
@@ -94,11 +95,12 @@ class ViewResource extends ViewRecord
     public function getFormActions(): array
     {
         return [
-            $this->getDeleteAction(),
+            // Filament 4+: l'azione va registrata sul componente, poi mountAction('delete') la risolve via deleteAction()
+            $this->cacheAction($this->deleteAction()),
         ];
     }
 
-    private function getDeleteAction(): Action
+    public function deleteAction(): Action
     {
         return Action::make('delete')
             ->label('Remove resource from profile')

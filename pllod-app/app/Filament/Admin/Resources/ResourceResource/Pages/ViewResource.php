@@ -4,12 +4,12 @@ namespace App\Filament\Admin\Resources\ResourceResource\Pages;
 
 use App\Filament\Admin\Resources\ResourceResource;
 use Filament\Actions\Action;
-use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\On;
 
@@ -17,7 +17,7 @@ class ViewResource extends ViewRecord
 {
     protected static string $resource = ResourceResource::class;
 
-    protected static string $view = 'filament.pages.admin.view-resource';
+    protected string $view = 'filament.pages.admin.view-resource';
 
     #[On('refresh-resource')]
     public function refreshResource(): void
@@ -58,10 +58,10 @@ class ViewResource extends ViewRecord
         ];
     }
 
-    public function infolist(Infolist $infolist): Infolist
+    public function infolist(Schema $schema): Schema
     {
-        return $infolist
-            ->schema([
+        return $schema
+            ->components([
                 $this->getResourceMetadataSection(),
             ]);
     }
@@ -69,6 +69,7 @@ class ViewResource extends ViewRecord
     private function getResourceMetadataSection(): Section
     {
         return Section::make('Resource Metadata')
+            ->columnSpanFull()
             ->collapsible()
             ->schema([
                 TextEntry::make('type')

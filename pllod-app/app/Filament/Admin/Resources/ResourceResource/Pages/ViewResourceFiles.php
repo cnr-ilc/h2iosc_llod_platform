@@ -16,7 +16,7 @@ class ViewResourceFiles extends ManageRelatedRecords
 
     protected static string $relationship = 'files';
 
-    protected static string $view = 'filament.pages.admin.view-resource-files';
+    protected string $view = 'filament.pages.admin.view-resource-files';
 
     public function getViewData(): array
     {

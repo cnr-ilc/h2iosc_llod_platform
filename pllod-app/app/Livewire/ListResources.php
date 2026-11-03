@@ -22,6 +22,11 @@ class ListResources extends Component
         $this->dispatch('pageUpdated', page: $page);
     }
 
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
     /**
      * This method is called via wire:change="updateStatus" in the Blade view.
      * When the public $status property (bound with wire:model) changes,
@@ -81,7 +86,10 @@ class ListResources extends Component
                 ->limit(1)
         );
 
-        $paginatedResources = $resourcesQuery->paginate($this->perPage);
+        // 'all' è una delle opzioni del selettore "per page" di <x-filament::pagination>
+        $perPage = $this->perPage === 'all' ? max(1, (clone $resourcesQuery)->count()) : (int) $this->perPage;
+
+        $paginatedResources = $resourcesQuery->paginate($perPage);
 
         return view('livewire.list-resources', [
             'resources' => $paginatedResources, // Pass the paginator instance directly to the view.

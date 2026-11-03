@@ -3,15 +3,18 @@
 namespace App\Console\Commands; // Changed namespace
 
 use App\Enums\UserRole;
+use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Auth\Guard; // Keep Guard for broader compatibility, but expect StatefulGuard features
-use Illuminate\Contracts\Auth\StatefulGuard; // Import StatefulGuard
-use Illuminate\Contracts\Auth\UserProvider;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Contracts\Auth\Guard;
+use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Contracts\Auth\UserProvider; // Keep Guard for broader compatibility, but expect StatefulGuard features
+use Illuminate\Support\Facades\Hash; // Import StatefulGuard
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
+use Throwable;
 
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\text;
@@ -67,7 +70,8 @@ class MakeSuperAdminCommand extends Command
 
     protected function createSuperAdmin(): Authenticatable
     {
-        /** @var \App\Models\User $user */ // Assuming App\Models\User is the model
+        /** @var User $user */
+        // Assuming App\Models\User is the model
         $user = static::getUserModel()::createQuietly($this->getUserData());
         $user->assignRole([UserRole::SUPER_ADMIN->value]);
 
@@ -110,7 +114,7 @@ class MakeSuperAdminCommand extends Command
         $provider = $this->getUserProvider();
 
         if (! $provider instanceof EloquentUserProvider) {
-            throw new \RuntimeException('Cannot get user model: The configured user provider is not an Eloquent provider.');
+            throw new RuntimeException('Cannot get user model: The configured user provider is not an Eloquent provider.');
         }
 
         return $provider->getModel();
@@ -120,7 +124,7 @@ class MakeSuperAdminCommand extends Command
     {
         $this->options = $this->options();
 
-        if (! Filament::getCurrentPanel()) {
+        if (! Filament::getCurrentOrDefaultPanel()) {
             $this->error('Filament has not been installed for the current panel context. Run: php artisan filament:install --panels');
 
             return static::INVALID;
@@ -129,7 +133,7 @@ class MakeSuperAdminCommand extends Command
         try {
             $user = $this->createSuperAdmin();
             $this->sendSuccessMessage($user);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->error('Failed to create super admin user: '.$e->getMessage());
 
             return static::FAILURE;

@@ -12,8 +12,9 @@ Route::get('login/keycloak', [LoginController::class, 'redirectToKeycloak'])->na
 Route::get('login/keycloak/callback', [LoginController::class, 'handleKeycloakCallback'])->name('login.keycloak.callback');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/files/{id}/download', [FileController::class, 'download'])->name('file.download');
-    Route::get('/files/{id}/suggestions', [FileController::class, 'suggestions'])->name('file.suggestions');
+    // Il nome del parametro deve coincidere con quello del controller ($file) per il route model binding
+    Route::get('/files/{file}/download', [FileController::class, 'download'])->name('file.download');
+    Route::get('/files/{file}/suggestions', [FileController::class, 'suggestions'])->name('file.suggestions');
 });
 
 Route::get('/settings/files/{encodedKey}', [SettingsController::class, 'open'])->middleware('auth')->name('settings.file.open');

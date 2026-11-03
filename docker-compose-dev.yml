@@ -1,21 +1,23 @@
 services:
   # MariaDB Database for Laravel
   mariadb:
-    image: mariadb:10.11
+    image: mariadb:13.0.2
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_mariadb
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      # Aggiorna le tabelle di sistema dei dati creati con MariaDB 10.11
+      MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
       - llod_network
     healthcheck:
-      test: ["CMD", "mysql", "-u", "root", "-p${DB_ROOT_PASSWORD}", "-e", "SELECT 1"]
+      test: ["CMD", "mariadb", "-u", "root", "-p${DB_ROOT_PASSWORD}", "-e", "SELECT 1"]
       start_period: 30s
       interval: 10s
       timeout: 5s
@@ -23,7 +25,7 @@ services:
 
   # Redis for Laravel queues and caching
   redis:
-    image: redis:7-alpine
+    image: redis:8.10.3-alpine
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_redis
     restart: always
@@ -32,22 +34,32 @@ services:
     networks:
       - llod_network
 
-  # Laravel Application
+  # Laravel Application (serversideup/php 8.5 fpm-nginx)
   laravel_app:
     build:
       context: .
-      dockerfile: ./docker/laravel/local/Dockerfile
+      dockerfile: ./docker/laravel/Dockerfile
+      target: development
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_app
     restart: always
-    working_dir: /var/www/html
+    environment:
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION_SEED: "true"
+      AUTORUN_LARAVEL_OPTIMIZE: "false"
+      AUTORUN_LARAVEL_CONFIG_CACHE: "false"
+      AUTORUN_LARAVEL_ROUTE_CACHE: "false"
+      AUTORUN_LARAVEL_VIEW_CACHE: "false"
+      AUTORUN_LARAVEL_EVENT_CACHE: "false"
     volumes:
-      - ./docker/laravel/local/php.ini:/usr/local/etc/php/conf.d/custom.ini
       - ./pllod-app/:/var/www/html
       - .env:/var/www/html/.env
     ports:
-      - "127.0.0.1:${LARAVEL_PORT:-8080}:80"
+      - "127.0.0.1:${LARAVEL_PORT:-8080}:8080"
     depends_on:
       mariadb:
         condition: service_healthy
@@ -60,24 +72,33 @@ services:
   laravel_horizon:
     build:
       context: .
-      dockerfile: ./docker/laravel/local/Dockerfile
+      dockerfile: ./docker/laravel/Dockerfile
+      target: development
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_horizon
     restart: always
-    working_dir: /var/www/html
+    command: ["php", "/var/www/html/artisan", "horizon"]
+    stop_signal: SIGTERM
+    environment:
+      AUTORUN_ENABLED: "false"
+      DEV_SETUP_ENABLED: "false"
     volumes:
-      - ./docker/laravel/local/php.ini:/usr/local/etc/php/conf.d/custom.ini
       - ./pllod-app/:/var/www/html
       - .env:/var/www/html/.env
+    healthcheck:
+      test: ["CMD", "healthcheck-horizon"]
+      start_period: 10s
     depends_on:
       mariadb:
         condition: service_healthy
       redis:
         condition: service_started
       laravel_app:
-        condition: service_started
-    entrypoint: ["/usr/local/bin/horizon-entrypoint.sh"]
+        condition: service_healthy
     networks:
       - llod_network
 

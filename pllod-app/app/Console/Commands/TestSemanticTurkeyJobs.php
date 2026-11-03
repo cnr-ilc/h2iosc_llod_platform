@@ -7,6 +7,7 @@ use App\Jobs\DeleteProjectSemanticTurkey;
 use App\Jobs\UpdateResourceFileFromGraphDB;
 use App\Models\ResourceFile;
 use App\Models\User;
+use Exception;
 use Illuminate\Console\Command;
 
 class TestSemanticTurkeyJobs extends Command
@@ -23,6 +24,7 @@ class TestSemanticTurkeyJobs extends Command
 
         if (! in_array($jobType, ['create', 'delete', 'update'])) {
             $this->error('Invalid job type. Use create, delete, or update.');
+
             return 1;
         }
 
@@ -30,12 +32,14 @@ class TestSemanticTurkeyJobs extends Command
             $resourceFile = ResourceFile::find($fileId);
             if (! $resourceFile) {
                 $this->error("ResourceFile with ID {$fileId} not found.");
+
                 return 1;
             }
         } else {
             $resourceFile = ResourceFile::where('can_be_opened_in_vocbench', true)->first();
             if (! $resourceFile) {
                 $this->error('No ResourceFile that can be opened in VocBench found.');
+
                 return 1;
             }
         }
@@ -47,12 +51,14 @@ class TestSemanticTurkeyJobs extends Command
                 $user = User::find($userId);
                 if (! $user) {
                     $this->error("User with ID {$userId} not found.");
+
                     return 1;
                 }
             } else {
                 $user = User::first();
                 if (! $user) {
                     $this->error('No User found in the database.');
+
                     return 1;
                 }
             }
@@ -64,26 +70,27 @@ class TestSemanticTurkeyJobs extends Command
         try {
             if ($jobType === 'create') {
                 $this->info('Testing CreateProjectSemanticTurkey job...');
-                
+
                 // Check if file can be opened in vocbench
-                if (!$resourceFile->can_be_opened_in_vocbench) {
+                if (! $resourceFile->can_be_opened_in_vocbench) {
                     $this->warn('ResourceFile cannot be opened in VocBench - job will return early');
+
                     return 0;
                 }
-                
+
                 $this->info('File can be opened in VocBench, proceeding...');
                 $this->info('Setting is_synchronising to true...');
-                
+
                 $job = new CreateProjectSemanticTurkey($resourceFile, $user);
                 $job->handle();
-                
+
                 // Reload the resource file to see changes
                 $resourceFile->refresh();
                 $this->info('Job completed. Final state:');
-                $this->info("- st_project_name: " . ($resourceFile->st_project_name ?? 'null'));
-                $this->info("- graphdb_repository_name: " . ($resourceFile->graphdb_repository_name ?? 'null'));
-                $this->info("- is_synchronising: " . ($resourceFile->is_synchronising ? 'true' : 'false'));
-                
+                $this->info('- st_project_name: '.($resourceFile->st_project_name ?? 'null'));
+                $this->info('- graphdb_repository_name: '.($resourceFile->graphdb_repository_name ?? 'null'));
+                $this->info('- is_synchronising: '.($resourceFile->is_synchronising ? 'true' : 'false'));
+
             } elseif ($jobType === 'delete') {
                 $this->info('Testing DeleteProjectSemanticTurkey job...');
                 $job = new DeleteProjectSemanticTurkey($resourceFile);
@@ -91,26 +98,27 @@ class TestSemanticTurkeyJobs extends Command
                 $this->info('Delete project job completed successfully.');
             } elseif ($jobType === 'update') {
                 $this->info('Testing UpdateResourceFileFromGraphDB job...');
-                
-                if (!$resourceFile->graphdb_repository_name) {
+
+                if (! $resourceFile->graphdb_repository_name) {
                     $this->warn('ResourceFile has no GraphDB repository name - job will fail');
-                    $this->info("- graphdb_repository_name: " . ($resourceFile->graphdb_repository_name ?? 'null'));
+                    $this->info('- graphdb_repository_name: '.($resourceFile->graphdb_repository_name ?? 'null'));
                 } else {
-                    $this->info("- graphdb_repository_name: " . $resourceFile->graphdb_repository_name);
+                    $this->info('- graphdb_repository_name: '.$resourceFile->graphdb_repository_name);
                 }
-                
+
                 $job = new UpdateResourceFileFromGraphDB($resourceFile);
                 $job->handle();
-                
+
                 // Reload the resource file to see changes
                 $resourceFile->refresh();
                 $this->info('Update job completed. Final state:');
-                $this->info("- file_size: " . $resourceFile->size);
-                $this->info("- is_synchronising: " . ($resourceFile->is_synchronising ? 'true' : 'false'));
+                $this->info('- file_size: '.$resourceFile->size);
+                $this->info('- is_synchronising: '.($resourceFile->is_synchronising ? 'true' : 'false'));
             }
-        } catch (\Exception $e) {
-            $this->error('Job failed with error: ' . $e->getMessage());
-            $this->error('Stack trace: ' . $e->getTraceAsString());
+        } catch (Exception $e) {
+            $this->error('Job failed with error: '.$e->getMessage());
+            $this->error('Stack trace: '.$e->getTraceAsString());
+
             return 1;
         }
 

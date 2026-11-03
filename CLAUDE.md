@@ -22,7 +22,7 @@ cd pllod-app && composer dev
 php artisan serve                    # Start Laravel server
 php artisan queue:listen --tries=1  # Start queue worker
 php artisan pail --timeout=0        # View logs
-npm run dev                          # Start Vite dev server
+bun run dev                          # Start Vite dev server
 
 # Docker development
 docker-compose up -d                 # Start all services
@@ -45,7 +45,7 @@ cd rdf-validation-api && python run_tests.py
 cd pllod-app && vendor/bin/pint
 
 # Build assets
-cd pllod-app && npm run build
+cd pllod-app && bun run build
 ```
 
 ### Database & Jobs

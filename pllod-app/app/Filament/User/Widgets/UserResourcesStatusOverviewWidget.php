@@ -5,6 +5,9 @@ namespace App\Filament\User\Widgets;
 use App\Enums\ResourceStatusSubmission;
 use App\Filament\User\Pages\ImportResource;
 use App\Models\Resource;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\View;
+use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -12,20 +15,37 @@ class UserResourcesStatusOverviewWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
 
-    protected static string $view = 'filament.widgets.user-resources-stats-overview-widget';
+    protected ?string $pollingInterval = '10s';
 
-    protected static ?string $pollingInterval = '10s';
-
-    protected function getPollingInterval(): ?string
+    /**
+     * Stessi breakpoint della vecchia view custom (md:grid-cols-2 xl:grid-cols-4 / md:grid-cols-3).
+     *
+     * @return array<string, int>
+     */
+    protected function getColumns(): array
     {
-        return static::$pollingInterval;
+        return $this->showCreateResourceButton() ? ['md' => 2, 'xl' => 4] : ['md' => 3];
     }
 
-    protected function getColumns(): int
+    /**
+     * Filament 4+: gli Stat sono componenti di uno Schema, quindi la card-link
+     * si aggiunge come componente View accanto agli Stat (ex view custom del widget).
+     */
+    #[Unexposed]
+    public function getSectionContentComponent(): Component
     {
-        $showCreateResourceButton = $this->showCreateResourceButton();
+        $components = $this->getCachedStats();
 
-        return $showCreateResourceButton ? 4 : 3;
+        if ($this->showCreateResourceButton()) {
+            $components[] = View::make('filament.widgets.partials.stats-link-card')
+                ->viewData([
+                    'url' => $this->getCreateResourceButtonURL(),
+                    'heading' => __('filament.widgets.user-resources-stats-overview.import-resources'),
+                    'description' => __('filament.widgets.user-resources-stats-overview.import-resources-description'),
+                ]);
+        }
+
+        return parent::getSectionContentComponent()->schema($components);
     }
 
     protected function showCreateResourceButton(): bool

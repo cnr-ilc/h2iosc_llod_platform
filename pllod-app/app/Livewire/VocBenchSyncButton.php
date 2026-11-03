@@ -2,8 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Enums\GeneralStatus;
 use App\Jobs\UpdateResourceFileFromGraphDB;
 use App\Models\ResourceFile;
+use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Log;
@@ -21,9 +23,9 @@ class VocBenchSyncButton extends Component
 
     public function isButtonDisabled(): bool
     {
-        return $this->file->validation_status !== \App\Enums\GeneralStatus::SUCCESS->value ||
+        return $this->file->validation_status !== GeneralStatus::SUCCESS->value ||
         ! $this->file->can_be_opened_in_vocbench ||
-        $this->file->quality_assessment_status === \App\Enums\GeneralStatus::RUNNING->value ||
+        $this->file->quality_assessment_status === GeneralStatus::RUNNING->value ||
         $this->file->is_synchronising ||
         empty($this->file->graphdb_repository_name);
     }
@@ -94,7 +96,7 @@ class VocBenchSyncButton extends Component
             $this->dispatch('refresh-voc-bench-button');
             $this->dispatch('refresh-voc-bench-sync-button');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Sync with VocBench failed', [
                 'file_id' => $this->file->id,
                 'error' => $e->getMessage(),

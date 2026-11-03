@@ -9,7 +9,7 @@ class ListResource extends Page
 {
     protected static string $resource = ResourceResource::class;
 
-    protected static string $view = 'filament.admin.resources.resource.pages.list-resource';
+    protected string $view = 'filament.admin.resources.resource.pages.list-resource';
 
     public function getTitle(): string
     {

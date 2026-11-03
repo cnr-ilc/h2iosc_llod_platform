@@ -1,20 +1,108 @@
-@import "/vendor/filament/filament/resources/css/theme.css";
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
 
-@config 'tailwind.config.js';
+/* Sorgenti scansionate da Tailwind (ex "content" di tailwind.config.js) */
+@source '../../../../app/Filament/**/*';
+@source '../../../../app/Forms/**/*';
+@source '../../../../app/Livewire/**/*';
+@source '../../../../resources/views/filament/**/*';
+@source '../../../../resources/views/forms/**/*';
+@source '../../../../resources/views/livewire/**/*';
+
+/* Ex theme.extend di tailwind.config.js */
+@theme {
+    --font-sans: 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-basics-white: #ffffff;
+    --color-basics-black: #191918;
+
+    --color-brand-accentIndigo: #07426e;
+    --color-brand-50: #e7f0f6;
+    --color-brand-100: #cddde8;
+    --color-brand-200: #b3c7d6;
+    --color-brand-300: #91adc3;
+    --color-brand-400: #59819e;
+    --color-brand-500: #306186;
+    --color-brand-600: #07426e;
+    --color-brand-700: #023356;
+    --color-brand-800: #032137;
+    --color-brand-900: #021624;
+
+    --color-grey-50: #f9fafb;
+    --color-grey-100: #f3f4f6;
+    --color-grey-200: #e5e9f0;
+    --color-grey-300: #d1d5db;
+    --color-grey-400: #9ca3af;
+    --color-grey-500: #6b7280;
+    --color-grey-600: #4b5563;
+    --color-grey-700: #374151;
+    --color-grey-800: #1f2937;
+    --color-grey-900: #111827;
+
+    --color-primary-50: #e8e8f4;
+    --color-primary-100: #e0e0ee;
+    --color-primary-200: #cbcce4;
+    --color-primary-300: #a2a4cc;
+    --color-primary-400: #8386bb;
+    --color-primary-500: #6468aa;
+    --color-primary-600: #454a99;
+    --color-primary-700: #35397a;
+    --color-primary-800: #212449;
+    --color-primary-900: #14152e;
+
+    --color-success-50: #f2fdf5;
+    --color-success-100: #d3f3df;
+    --color-success-200: #a7e8bf;
+    --color-success-300: #7adc9e;
+    --color-success-400: #4ed17e;
+    --color-success-500: #22c55e;
+    --color-success-600: #16a34a;
+    --color-success-700: #147638;
+    --color-success-800: #0e4f26;
+    --color-success-900: #072713;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fdecce;
+    --color-warning-200: #fbd89d;
+    --color-warning-300: #f9c56d;
+    --color-warning-400: #f7b13c;
+    --color-warning-500: #f59e0b;
+    --color-warning-600: #d97706;
+    --color-warning-700: #a96e09;
+    --color-warning-800: #623f04;
+    --color-warning-900: #312002;
+
+    --color-danger-50: #ffeaea;
+    --color-danger-100: #f5cece;
+    --color-danger-200: #f6b1b1;
+    --color-danger-300: #ef7f7f;
+    --color-danger-400: #ea5555;
+    --color-danger-500: #e52a2a;
+    --color-danger-600: #dc0000;
+    --color-danger-700: #a10303;
+    --color-danger-800: #5b0000;
+    --color-danger-900: #370000;
+}
+
+/* Ex backgroundImage di tailwind.config.js */
+@utility bg-button-gradient {
+    background-image: linear-gradient(180deg, #575cac 0%, #454a99 100%);
+}
+
+@utility bg-button-gradient-hover {
+    background-image: linear-gradient(180deg, #454a99 0%, #35397a 100%);
+}
 
 /*
  * PAGE: IMPORT RESOURCE
  */
 body.pllod-import-resource-page {
-    .fi-fo-field-wrp-label {
-        span {
-            @apply text-base font-medium;
-        }
+    .fi-fo-field-label-content {
+        @apply text-base font-medium;
     }
 
     .fi-fo-checkbox-list {
         .fi-fo-checkbox-list-option-label {
-            @apply font-normal cursor-pointer;
+            @apply cursor-pointer font-normal;
         }
     }
 }
@@ -24,23 +112,23 @@ body.pllod-import-resource-page {
     @apply shadow-md;
 }
 
-/* TOPBAR */
-.fi-topbar-with-navigation {
-    >nav {
-        @apply lg:h-[6rem];
+/* TOPBAR (v3: .fi-topbar-with-navigation > nav { lg:h-[6rem] }) */
+.fi-body {
+    @variant lg {
+        --topbar-height: 6rem;
     }
 }
 
 /* SECTION */
 .fi-section {
-    @apply ring-0 shadow-none;
+    @apply shadow-none ring-0;
 
-    .fi-icon-btn-icon {
+    .fi-icon-btn .fi-icon {
         @apply h-6 w-6;
     }
 
     .fi-section-header {
-        @apply bg-gray-200 rounded-t-lg;
+        @apply rounded-t-lg bg-gray-200;
     }
 
     &:where(.fi-collapsed) {
@@ -50,10 +138,10 @@ body.pllod-import-resource-page {
     }
 
     .fi-section-header-heading {
-        @apply leading-none text-lg font-medium;
+        @apply text-lg leading-none font-medium;
     }
 
-    .fi-fo-component-ctn {
+    .fi-sc {
         @apply gap-8;
     }
 
@@ -61,65 +149,62 @@ body.pllod-import-resource-page {
         @apply border-none;
     }
 
-    .fi-section-content {
+    /* In v4+ anche gli stats overview widget sono Section (non contained): niente padding extra */
+    &:not(.fi-section-not-contained) .fi-section-content {
         @apply px-6 py-8;
     }
 }
 
 /* TABS */
 .fi-tabs {
-    @apply ring-0 shadow-none mx-0 w-fit;
+    @apply mx-0 w-fit shadow-none ring-0;
 
-    .fi-tabs-item {
-        @apply text-gray-500 font-bold;
+    .fi-tabs-item,
+    .fi-tabs-item .fi-tabs-item-label {
+        @apply font-bold text-gray-500;
     }
 
-    .fi-tabs-item-active {
-        @apply bg-gray-100 text-brand-600;
+    .fi-tabs-item.fi-active {
+        @apply bg-gray-100;
+
+        .fi-tabs-item-label {
+            @apply text-brand-600;
+        }
     }
 }
 
 /* INFOLIST */
-.fi-in-entry-wrp-label {
-    @apply [&_span]:font-bold [&_span]:text-base;
+.fi-in-entry-label {
+    @apply text-base font-bold [&_span]:text-base [&_span]:font-bold;
 }
 
-/* TIPPY */
-.tippy-box[data-theme~=light] {
-    background-color: rgb(var(--gray-700)) !important;
-    color: rgb(255 255 255);
+/* TIPPY (in Filament 4+ i colori sono valori completi, non più canali RGB) */
+.tippy-box[data-theme~='light'] {
+    background-color: var(--gray-700) !important;
+    color: #ffffff;
 }
 
-.tippy-box[data-theme~=light][data-placement^=top]>.tippy-arrow:before {
-    border-top-color: rgb(var(--gray-700)) !important;
+.tippy-box[data-theme~='light'][data-placement^='top'] > .tippy-arrow:before {
+    border-top-color: var(--gray-700) !important;
 }
 
-.tippy-box[data-theme~=light][data-placement^=right]>.tippy-arrow:before {
-    border-right-color: rgb(var(--gray-700)) !important;
+.tippy-box[data-theme~='light'][data-placement^='right'] > .tippy-arrow:before {
+    border-right-color: var(--gray-700) !important;
 }
 
-.tippy-box[data-theme~=light][data-placement^=bottom]>.tippy-arrow:before {
-    border-bottom-color: rgb(var(--gray-700)) !important;
+.tippy-box[data-theme~='light'][data-placement^='bottom'] > .tippy-arrow:before {
+    border-bottom-color: var(--gray-700) !important;
 }
 
-.tippy-box[data-theme~=light][data-placement^=left]>.tippy-arrow:before {
-    border-left-color: rgb(var(--gray-700)) !important;
+.tippy-box[data-theme~='light'][data-placement^='left'] > .tippy-arrow:before {
+    border-left-color: var(--gray-700) !important;
 }
 
+/* Campo centrato (Radio di ResourceApprovation) */
 .fi-fo-field-centered-wrp {
+    grid-template-columns: auto !important;
+
     .fi-fo-field-wrp-error-message {
         @apply text-center;
-    }
-}
-
-/* Override the sm:grid-cols-3 in the direct child div with the grid class */
-.fi-fo-field-centered-wrp > .grid {
-    grid-template-columns: auto !important;
-}
-
-/* Apply this only at the sm breakpoint where the original sm:grid-cols-3 would take effect */
-@media (min-width: 640px) {
-    .fi-fo-field-centered-wrp > .grid {
-        grid-template-columns: auto !important;
     }
 }
