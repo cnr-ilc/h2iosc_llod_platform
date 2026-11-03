@@ -34,9 +34,9 @@ docker-compose logs -f laravel_app   # View Laravel logs
 # Laravel tests (uses Pest)
 cd pllod-app && vendor/bin/pest
 
-# Python API tests
-cd rdf-validation-api && python -m pytest
-cd rdf-validation-api && python run_tests.py
+# Python API tests (uv: pyproject.toml + uv.lock)
+cd rdf-validation-api && uv run pytest
+cd rdf-validation-api && uv run run_tests.py
 ```
 
 ### Code Quality
@@ -91,10 +91,12 @@ php artisan make:super-admin
 5. Publication to DSpace repository
 
 ### Docker Services
-- `laravel_app` - Main Laravel application (port 8080)
-- `laravel_horizon` - Queue processing
-- `mariadb` - Database
-- `redis` - Queue and cache
-- `python_api` - RDF validation service
-- `vocbench3` - Semantic annotation (port 1979)
-- `graphdb` - Triple store (port 7200)
+Only `laravel_app` (127.0.0.1:8080) and `vocbench3` (127.0.0.1:1979) publish ports; the rest talk by name on Docker networks.
+`llod_data` and `llod_graph` are `internal` (no internet); `llod_network` is the only one with outbound access.
+- `laravel_app` - Main Laravel application (port 8080; networks: llod_network, llod_data, llod_graph)
+- `laravel_horizon` - Queue processing (llod_network, llod_data, llod_graph)
+- `mariadb` - Database (llod_data)
+- `redis` - Queue and cache (llod_data)
+- `python_api` - RDF validation service, FastAPI + uv (llod_network: needs internet for URI checks)
+- `vocbench3` - Semantic annotation (port 1979; llod_network, llod_graph)
+- `graphdb` - Triple store, `http://graphdb:7200` (llod_graph only)

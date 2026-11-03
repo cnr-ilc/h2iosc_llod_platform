@@ -15,7 +15,7 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
-      - llod_network
+      - llod_data
     healthcheck:
       test: ["CMD", "mariadb", "-u", "root", "-p${DB_ROOT_PASSWORD}", "-e", "SELECT 1"]
       start_period: 30s
@@ -32,7 +32,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - llod_network
+      - llod_data
 
   # Laravel Application (serversideup/php 8.5 fpm-nginx)
   laravel_app:
@@ -47,6 +47,7 @@ services:
     volumes:
       - pllod-storage:/var/www/html/storage
       - .env:/var/www/html/.env
+    # Unico punto d'ingresso dell'app: solo su loopback, davanti c'è il reverse proxy dell'host
     ports:
       - "127.0.0.1:${LARAVEL_PORT:-8080}:8080"
     depends_on:
@@ -56,6 +57,8 @@ services:
         condition: service_started
     networks:
       - llod_network
+      - llod_data
+      - llod_graph
 
   # Laravel Horizon for queue processing
   laravel_horizon:
@@ -86,18 +89,19 @@ services:
         condition: service_healthy
     networks:
       - llod_network
+      - llod_data
+      - llod_graph
 
-  # Python RDF Validation API
+  # Python RDF Validation API (chiamata solo da app/horizon; esce su internet per verificare gli URI)
   python_api:
     build:
       context: ./rdf-validation-api
       dockerfile: Dockerfile
+      target: production
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_python_api
     restart: always
-    volumes:
-      - ./rdf-validation-api:/app
     networks:
       - llod_network
 
@@ -108,6 +112,7 @@ services:
       context: ./vocbench3-docker/14.0.0
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    # Il browser degli utenti apre VocBench (VOCBENCH_URL): solo su loopback, davanti c'è il reverse proxy dell'host
     ports:
     - "127.0.0.1:1979:1979"
     volumes:
@@ -118,21 +123,21 @@ services:
       - graphdb
     networks:
       - llod_network
+      - llod_graph
 
+  # Triple store: raggiungibile solo da VocBench e app/horizon (http://graphdb:7200), nessuna porta pubblicata
   graphdb:
     restart: always
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    ports:
-     - "127.0.0.1:7200:7200"
     volumes:
      - type: bind
        source: ./vocbench3-docker/volumes/gdbhome
        target: /opt/graphdb/home
     networks:
-      - llod_network
+      - llod_graph
 
 volumes:
   mariadb_data:
@@ -140,5 +145,13 @@ volumes:
   pllod-storage:
 
 networks:
+  # Unica rete con accesso a internet (DSpace, Keycloak, verifica URI) e porte pubblicate
   llod_network:
-    driver: bridge 
+    driver: bridge
+  # Reti interne (internal: niente internet, niente porte pubblicate): i servizi si chiamano per nome
+  llod_data:
+    driver: bridge
+    internal: true
+  llod_graph:
+    driver: bridge
+    internal: true 

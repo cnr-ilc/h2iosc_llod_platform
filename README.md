@@ -37,9 +37,9 @@ View application logs:
 php artisan pail --timeout=0
 ```
 
-Start frontend development server:
+Start frontend development server (assets are built with [Bun](https://bun.sh)):
 ```bash
-npm run dev
+bun install && bun run dev
 ```
 
 ### Docker Deployment
@@ -56,9 +56,21 @@ docker-compose logs -f laravel_app
 
 ## Services
 
-- **Laravel App**: http://localhost:8080
-- **VocBench3**: http://localhost:1979  
-- **GraphDB**: http://localhost:7200
+Only the services a browser needs are published, and only on `127.0.0.1` (put the host reverse proxy in front of them):
+
+- **Laravel App**: http://localhost:8080 (`LARAVEL_PORT`)
+- **VocBench3**: http://localhost:1979/vocbench3
+
+Everything else is reachable only by name inside the Docker networks:
+
+| Service | Address | Network |
+|---|---|---|
+| MariaDB | `mariadb:3306` | `llod_data` (internal) |
+| Redis | `llod_redis:6379` | `llod_data` (internal) |
+| GraphDB | `http://graphdb:7200` | `llod_graph` (internal) |
+| RDF validation API | `http://llod_python_api:8000` | `llod_network` |
+
+`internal` networks have no internet access and cannot publish ports. `llod_network` is the only network with outbound access (DSpace, Keycloak, URI checks of the validation API).
 
 ## Testing
 
@@ -67,7 +79,7 @@ Laravel tests:
 cd pllod-app && vendor/bin/pest
 ```
 
-Python API tests:
+Python API tests (dependencies managed with [uv](https://docs.astral.sh/uv/)):
 ```bash
-cd rdf-validation-api && python -m pytest
+cd rdf-validation-api && uv run pytest
 ```
