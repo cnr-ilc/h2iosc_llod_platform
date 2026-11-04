@@ -61,6 +61,15 @@ else
     [ -n "$(val "$k" "$tmp")" ] || { set_key "$k" "$(openssl rand -hex 24)"; generated+=("$k"); }
   done
 
+  # Immagini native per l'architettura di Docker (su Apple Silicon linux/arm64, niente emulazione)
+  host_platform=$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null || true)
+  case "$host_platform" in
+    linux/amd64|linux/arm64)
+      set_key DOCKER_DEFAULT_PLATFORM "$host_platform"
+      echo "🧬 Immagini per $host_platform (l'architettura di Docker)" ;;
+    *) echo "⚠️  Architettura di Docker non rilevata: DOCKER_DEFAULT_PLATFORM resta $(val DOCKER_DEFAULT_PLATFORM "$tmp")" ;;
+  esac
+
   # Credenziali dei servizi esterni dal vecchio .env (solo valori reali, non i segnaposto)
   if [ -f "$SOURCE" ]; then
     for k in DSPACE_USERNAME DSPACE_PASSWORD KEYCLOAK_CLIENT_ID KEYCLOAK_CLIENT_SECRET \

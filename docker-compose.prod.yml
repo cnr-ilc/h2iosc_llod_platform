@@ -41,6 +41,7 @@ services:
 
   # Laravel Application (serversideup/php 8.5 fpm-nginx)
   laravel_app:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
@@ -71,6 +72,7 @@ services:
 
   # Laravel Horizon for queue processing
   laravel_horizon:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
@@ -107,6 +109,7 @@ services:
 
   # Python RDF Validation API (chiamata solo da app/horizon; esce su internet per verificare gli URI)
   python_api:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./rdf-validation-api
       dockerfile: Dockerfile
@@ -121,6 +124,7 @@ services:
   vocbench3:
     container_name: vocbench
     restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./vocbench3-docker/14.0.0
       platforms:
@@ -141,6 +145,7 @@ services:
   # Triple store: raggiungibile solo da VocBench e app/horizon (http://graphdb:7200), nessuna porta pubblicata
   graphdb:
     restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
       platforms:

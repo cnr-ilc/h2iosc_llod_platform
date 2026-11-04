@@ -46,6 +46,7 @@ services:
 
   # Laravel (serversideup/php 8.5 fpm-nginx), codice montato dall'host
   laravel_app:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
@@ -87,6 +88,7 @@ services:
 
   # Horizon (code Redis)
   laravel_horizon:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
@@ -128,6 +130,7 @@ services:
   # API Python di validazione RDF: codice montato con reload automatico, nessuna porta pubblicata
   # (test: make dev-py-test)
   python_api:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./rdf-validation-api
       dockerfile: Dockerfile
@@ -147,6 +150,7 @@ services:
     container_name: pllod-dev-vocbench
     hostname: pllod-dev-vocbench
     restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./vocbench3-docker/14.0.0
       platforms:
@@ -168,6 +172,7 @@ services:
     container_name: pllod-dev-graphdb
     hostname: pllod-dev-graphdb
     restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
       platforms:

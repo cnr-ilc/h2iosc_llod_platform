@@ -21,7 +21,7 @@ make dev-env-init   # create .env.dev: APP_KEY and DB passwords are generated
 make dev-up         # build and start: app http://localhost:8080 · VocBench http://localhost:1979/vocbench3
 ```
 
-`make dev-env-init FROM=path/to/.env` also imports the DSpace, Keycloak and VocBench credentials from an existing env file. The dev stack is the Compose project `pllod-dev` (volumes `pllod-dev_*`) and its containers are named `pllod-dev-<service>`.
+`make dev-env-init` sets `DOCKER_DEFAULT_PLATFORM` to Docker's architecture, so on Apple Silicon the whole stack runs as native `linux/arm64` images instead of emulated `linux/amd64`. `make dev-env-init FROM=path/to/.env` also imports the DSpace, Keycloak and VocBench credentials from an existing env file. The dev stack is the Compose project `pllod-dev` (volumes `pllod-dev_*`) and its containers are named `pllod-dev-<service>`.
 
 ### Production
 
@@ -38,6 +38,7 @@ Before every `dev-*` / `prod-*` command `docker/preflight.sh` validates the conf
 - Docker and Docker Compose (≥ 2.20) are available
 - the env file exists, the required variables are set and `APP_KEY` is a valid 32-byte key
 - the service hosts (`DB_HOST`, `REDIS_HOST`, `SEMANTIC_TURKEY_BASE_URL`, `GRAPHDB_HOST_URL`, `PY_QUALITY_CHECK_SERVICE_URL`) match the containers and ports of that environment's compose file
+- the image architecture (`DOCKER_DEFAULT_PLATFORM`, `linux/amd64` or `linux/arm64`) matches Docker's: in dev a mismatch is a warning (the images run emulated, much slower), in production an error; images already built for the other architecture are reported
 - the VocBench/GraphDB data folders (`VB_DATA_DIR`) exist
 - `docker compose config` is valid and every interpolated variable is defined
 - production only: `APP_ENV=production`, `APP_DEBUG=false`, external credentials set, public `VOCBENCH_URL`

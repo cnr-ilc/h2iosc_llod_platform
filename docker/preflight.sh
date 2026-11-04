@@ -174,6 +174,33 @@ if [ "$env_ok" = 1 ]; then
   fi
 
   # -------------------------------------------------------------------------
+  # 🧬 Architettura: piattaforma delle immagini rispetto a quella di Docker
+  # -------------------------------------------------------------------------
+  # Come per docker compose, DOCKER_DEFAULT_PLATFORM della shell vince su quella del file env;
+  # se manca i compose usano linux/amd64
+  platform=$(printenv DOCKER_DEFAULT_PLATFORM 2>/dev/null || get DOCKER_DEFAULT_PLATFORM)
+  platform=${platform:-linux/amd64}
+  host_platform=""
+  platform_ok=0
+  [ "$docker_ok" = 1 ] && host_platform=$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null)
+  case "$platform" in
+    linux/amd64|linux/arm64)
+      platform_ok=1
+      case "$host_platform" in
+        "") ;;
+        "$platform") ok "Architettura: immagini $platform, native per Docker $host_platform" ;;
+        linux/amd64|linux/arm64)
+          if [ "$ENV_NAME" = prod ]; then
+            err "Le immagini sono $platform ma Docker gira su $host_platform: in produzione andrebbero in emulazione, lente e instabili. Imposta DOCKER_DEFAULT_PLATFORM=$host_platform in $ENV_FILE"
+          else
+            warn "Immagini $platform su Docker $host_platform: girano in emulazione, molto più lente. Per immagini native imposta DOCKER_DEFAULT_PLATFORM=$host_platform in $ENV_FILE (make dev-up le ricostruisce)"
+          fi ;;
+        *) err "Docker gira su $host_platform: le immagini dello stack esistono solo per linux/amd64 e linux/arm64" ;;
+      esac ;;
+    *) err "DOCKER_DEFAULT_PLATFORM=$platform non supportata: le immagini dello stack esistono per linux/amd64 e linux/arm64" ;;
+  esac
+
+  # -------------------------------------------------------------------------
   # 📁 Cartelle dati (bind mount di VocBench e GraphDB)
   # -------------------------------------------------------------------------
   vb=$(get VB_DATA_DIR); vb=${vb:-./vocbench3-docker/volumes}
@@ -229,6 +256,21 @@ if [ "$env_ok" = 1 ]; then
       if is_set DB_PORT && [ "$(get DB_PORT)" != 3306 ]; then err "DB_PORT deve essere 3306 (porta di MariaDB nella rete interna)"; hosts_ok=0; fi
       if is_set REDIS_PORT && [ "$(get REDIS_PORT)" != 6379 ]; then err "REDIS_PORT deve essere 6379 (porta di Redis nella rete interna)"; hosts_ok=0; fi
       [ "$hosts_ok" = 1 ] && ok "Host dei servizi coerenti con i container di $COMPOSE_FILE"
+
+      # Immagini già costruite per un'altra architettura: docker compose le riusa finché non vengono ricostruite
+      project=$(printf '%s\n' "$cfg" | sed -n 's/^name: //p' | head -n 1)
+      built=$(printf '%s\n' "$cfg" | awk '/^services:/ { s = 1; next } /^[^ ]/ { s = 0 }
+        s && /^  [A-Za-z0-9_.-]+:$/ { cur = $1; sub(/:$/, "", cur) } s && /^    build:/ { print cur }')
+      stale=""
+      [ "$platform_ok" = 1 ] || built=""
+      for svc in $built; do
+        img_platform=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$project-$svc" 2>/dev/null) || continue
+        [ "$img_platform" = "$platform" ] || stale="$stale $svc"
+      done
+      if [ -n "$stale" ]; then
+        if [ "$ENV_NAME" = prod ]; then rebuild="make prod-deploy"; else rebuild="make dev-up"; fi
+        warn "Immagini costruite per un'altra architettura (serve $platform):$stale. Le ricostruisce $rebuild"
+      fi
     else
       err "$COMPOSE_FILE non valido: $(grep -v '^$' "$stderr_file" | head -n 2 | tr '\n' ' ')"
     fi
