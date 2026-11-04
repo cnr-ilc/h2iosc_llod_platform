@@ -2,32 +2,35 @@
 
 namespace App\Filament\Admin\Resources;
 
-use App\Filament\Admin\Resources\SettingsResource\Pages;
+use App\Filament\Admin\Resources\SettingsResource\Pages\ManageSettings;
 use App\Models\Setting;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsResource extends Resource
 {
     protected static ?string $model = Setting::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    public static function canCreate(): bool
+    public static function getCreateAuthorizationResponse(): Response
     {
-        return false;
+        return Response::deny();
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->components([
                 //
             ]);
     }
@@ -36,26 +39,26 @@ class SettingsResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('label')
+                TextColumn::make('label')
                     ->label(__('Name'))
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('value')
+                TextColumn::make('value')
                     ->label(__('Value'))
                     ->formatStateUsing(fn (string $state, Setting $record) => $record->type === 'file' ? basename($state) : $state),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime('d-m-Y H:i:s')
                     ->label(__('Updated at'))
                     ->sortable(),
             ])
             ->paginated(false)
-            ->actions([
-                Tables\Actions\ViewAction::make()
+            ->recordActions([
+                ViewAction::make()
                     ->hidden(fn (Setting $record): bool => $record->type !== 'file' || ($record->type === 'file' && empty($record->value)))
                     ->url(fn (Setting $record): string => Storage::url($record->value))
                     ->openUrlInNewTab(),
-                Tables\Actions\EditAction::make()
-                    ->form(function (Setting $record): array {
+                EditAction::make()
+                    ->schema(function (Setting $record): array {
                         return match ($record->type) {
                             'file' => [
                                 FileUpload::make('value')
@@ -86,7 +89,7 @@ class SettingsResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ManageSettings::route('/'),
+            'index' => ManageSettings::route('/'),
         ];
     }
 }

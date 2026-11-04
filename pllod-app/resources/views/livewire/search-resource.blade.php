@@ -1,5 +1,5 @@
 <section class="flex flex-col gap-8">
-    <x-filament-panels::form wire:submit="submit" autocomplete="off">
+    <form wire:submit="submit" autocomplete="off" class="fi-form grid gap-y-6">
         {{ $this->form }}
         <div class="flex justify-end gap-4">
             <x-filament::button type="button" size="md" wire:click="resetForm" outlined wire:loading.attr="disabled"
@@ -11,7 +11,7 @@
                 {{ __('filament.pages.import-resource.form.submit') }}
             </x-filament::button>
         </div>
-    </x-filament-panels::form>
+    </form>
     <hr class="w-full text-gray-200">
     @if ($this->loading)
         <h3 class="text-xl font-bold text-gray-900 leading-none">
@@ -37,4 +37,6 @@
             </div>
         </div>
     @endif
+
+    <x-filament-actions::modals />
 </section>

@@ -183,7 +183,7 @@ class ProcessFiles implements ShouldQueue
         if ($this->isAcceptedMimeType($mimeType) || $this->isAcceptedFileExtension($file['name'])) {
             Log::info("📝 [ProcessFiles] Processing single file: {$file['name']}");
             $this->saveFile($file['name'], $file['content']);
-            $this->handleSingleFile($file['name'], $resourceFile, $mimeType);
+            $this->handleSingleFile($file['name'], $resourceFile, $this->resolveRdfMimeType($file['name'], $mimeType));
 
             return;
         }
@@ -233,6 +233,22 @@ class ProcessFiles implements ShouldQueue
         $normalized = $this->normalizeMimeType($mimeType);
 
         return isset($this->acceptedMimeTypeMap[$normalized]);
+    }
+
+    /**
+     * libmagic rileva i file Turtle come text/plain (che la validazione interpreta come N-Triples):
+     * per i file accettati tramite estensione il MIME si ricava dall'estensione.
+     */
+    private function resolveRdfMimeType(string $filename, string $mimeType): string
+    {
+        if ($this->isAcceptedMimeType($mimeType)) {
+            return $mimeType;
+        }
+
+        return match (strtolower(pathinfo($filename, PATHINFO_EXTENSION))) {
+            'ttl' => 'text/turtle',
+            default => $mimeType,
+        };
     }
 
     /**

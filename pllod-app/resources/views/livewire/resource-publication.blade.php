@@ -1,5 +1,5 @@
 <div>
-    <x-filament-panels::form wire:submit="submit" autocomplete="off">
+    <form wire:submit="submit" autocomplete="off" class="fi-form grid gap-y-6">
         <div class="flex flex-col gap-2">
             {{ $this->form }}
             <p class="text-sm text-gray-500">
@@ -46,5 +46,7 @@
                 </x-slot>
             </x-filament::modal>
         </div>
-    </x-filament-panels::form>
+    </form>
+
+    <x-filament-actions::modals />
 </div>

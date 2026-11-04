@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class SettingsController extends Controller
 {
@@ -18,7 +19,7 @@ class SettingsController extends Controller
             }
 
             return Storage::disk('public')->response($setting->value);
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             abort(404, 'File not found');
         }
     }

@@ -31,8 +31,8 @@ class DatabaseSeeder extends Seeder
                     'password' => Hash::make('superadmin'),
                 ]
             );
-            
-            if (!$superAdmin->hasRole(UserRole::SUPER_ADMIN->value)) {
+
+            if (! $superAdmin->hasRole(UserRole::SUPER_ADMIN->value)) {
                 $superAdmin->assignRole(UserRole::SUPER_ADMIN->value);
             }
         });

@@ -6,6 +6,7 @@ use App\Jobs\DeleteProjectSemanticTurkey;
 use App\Models\Resource;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ResourceObserver
 {
@@ -37,7 +38,7 @@ class ResourceObserver
             try {
                 Log::info('Deleting resource files folder: '.dirname($firstFile->path));
                 Storage::disk('local')->deleteDirectory(dirname($firstFile->path));
-            } catch (\Throwable $th) {
+            } catch (Throwable $th) {
                 Log::error('Error deleting resource files: '.$th->getMessage());
             }
         }

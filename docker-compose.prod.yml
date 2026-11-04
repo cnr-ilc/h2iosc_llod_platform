@@ -1,0 +1,175 @@
+# 🏭 Ambiente di PRODUZIONE — si usa con .env.prod (make prod-*)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod ...
+#
+# Nessun "name:": il progetto prende il nome della cartella, così sul server restano in uso
+# i volumi esistenti (<cartella>_mariadb_data, ...). Non impostarlo senza migrare i dati.
+services:
+  # MariaDB Database for Laravel
+  mariadb:
+    image: mariadb:13.0.2
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      # Aggiorna le tabelle di sistema dei dati creati con MariaDB 10.11
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - llod_data
+    healthcheck:
+      test: ["CMD", "mariadb", "-u", "root", "-p${DB_ROOT_PASSWORD}", "-e", "SELECT 1"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Redis for Laravel queues and caching
+  redis:
+    image: redis:8.10.3-alpine
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - llod_data
+
+  # Laravel Application (serversideup/php 8.5 fpm-nginx)
+  laravel_app:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    build:
+      context: .
+      dockerfile: ./docker/laravel/Dockerfile
+      target: production
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_laravel_app
+    restart: always
+    volumes:
+      - pllod-storage:/var/www/html/storage
+      # Sintassi estesa: se .env.prod manca Docker dà errore invece di creare una cartella vuota
+      - type: bind
+        source: ./.env.prod
+        target: /var/www/html/.env
+        read_only: true
+    # Unico punto d'ingresso dell'app: solo su loopback, davanti c'è il reverse proxy dell'host
+    ports:
+      - "127.0.0.1:${LARAVEL_PORT:-8080}:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - llod_network
+      - llod_data
+      - llod_graph
+
+  # Laravel Horizon for queue processing
+  laravel_horizon:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    build:
+      context: .
+      dockerfile: ./docker/laravel/Dockerfile
+      target: production
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_laravel_horizon
+    restart: always
+    command: ["php", "/var/www/html/artisan", "horizon"]
+    stop_signal: SIGTERM
+    environment:
+      AUTORUN_ENABLED: "false"
+    volumes:
+      - pllod-storage:/var/www/html/storage
+      # Sintassi estesa: se .env.prod manca Docker dà errore invece di creare una cartella vuota
+      - type: bind
+        source: ./.env.prod
+        target: /var/www/html/.env
+        read_only: true
+    healthcheck:
+      test: ["CMD", "healthcheck-horizon"]
+      start_period: 10s
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      laravel_app:
+        condition: service_healthy
+    networks:
+      - llod_network
+      - llod_data
+      - llod_graph
+
+  # Python RDF Validation API (chiamata solo da app/horizon; esce su internet per verificare gli URI)
+  python_api:
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    build:
+      context: ./rdf-validation-api
+      dockerfile: Dockerfile
+      target: production
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    container_name: llod_python_api
+    restart: always
+    networks:
+      - llod_network
+
+  vocbench3:
+    container_name: vocbench
+    restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    build:
+      context: ./vocbench3-docker/14.0.0
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    # Il browser degli utenti apre VocBench (VOCBENCH_URL): solo su loopback, davanti c'è il reverse proxy dell'host
+    ports:
+    - "127.0.0.1:1979:1979"
+    volumes:
+     - type: bind
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/stdata
+       target: /opt/vocbench3/data
+    depends_on:
+      - graphdb
+    networks:
+      - llod_network
+      - llod_graph
+
+  # Triple store: raggiungibile solo da VocBench e app/horizon (http://graphdb:7200), nessuna porta pubblicata
+  graphdb:
+    restart: always
+    platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    build:
+      context: ./vocbench3-docker/helpers/graphdb-with-st-sails
+      platforms:
+        - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    volumes:
+     - type: bind
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/gdbhome
+       target: /opt/graphdb/home
+    networks:
+      - llod_graph
+
+volumes:
+  mariadb_data:
+  redis_data:
+  pllod-storage:
+
+networks:
+  # Unica rete con accesso a internet (DSpace, Keycloak, verifica URI) e porte pubblicate
+  llod_network:
+    driver: bridge
+  # Reti interne (internal: niente internet, niente porte pubblicate): i servizi si chiamano per nome
+  llod_data:
+    driver: bridge
+    internal: true
+  llod_graph:
+    driver: bridge
+    internal: true 

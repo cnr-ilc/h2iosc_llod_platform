@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\GeneralStatus;
 use App\Enums\RdfFormat;
 use App\Models\ResourceFile;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -56,7 +57,7 @@ class healthCheckResourceFile implements ShouldQueue
 
         try {
             $format = RdfFormat::toValidationAPIFormat($this->resourceFile->mime_type)->value;
-            
+
             $response = Http::attach(
                 'file',
                 file_get_contents($filePath),
@@ -76,7 +77,7 @@ class healthCheckResourceFile implements ShouldQueue
                 $errorMessage = 'Health check API returned HTTP error '.$response->status().' for file: '.basename($filePath);
                 Log::error($errorMessage, $responseData ?? []);
 
-                throw new \Exception($errorMessage);
+                throw new Exception($errorMessage);
             }
 
             if (isset($responseData['is_valid']) && $responseData['is_valid'] === true) {
@@ -97,13 +98,13 @@ class healthCheckResourceFile implements ShouldQueue
                 $this->resourceFile->can_be_opened_in_vocbench = true;
             }
 
-            if (isset($responseData['main_uri']) && !empty($responseData['main_uri'])) {
+            if (isset($responseData['main_uri']) && ! empty($responseData['main_uri'])) {
                 $this->resourceFile->graphdb_uri = $responseData['main_uri'];
             }
 
             $this->resourceFile->validation_timestamp = now();
             $this->resourceFile->save();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->resourceFile->validation_status = GeneralStatus::FAILED;
             $this->resourceFile->validation_timestamp = now();
             $this->resourceFile->save();

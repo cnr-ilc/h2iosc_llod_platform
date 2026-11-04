@@ -28,7 +28,7 @@ class ViewResourceFiles extends ManageRelatedRecords
 
     protected static string $relationship = 'files';
 
-    protected static string $view = 'filament.pages.view-resource-files';
+    protected string $view = 'filament.pages.view-resource-files';
 
     #[On('refresh-resource')]
     public function refreshResource(): void
@@ -102,7 +102,7 @@ class ViewResourceFiles extends ManageRelatedRecords
             ->modalDescription(__('Please select the file you want to reupload.'))
             ->modalCancelActionLabel(__('Cancel'))
             ->modalSubmitActionLabel(__('Reupload'))
-            ->form([
+            ->schema([
                 FileUpload::make('fileForReupload')
                     ->label(__('File'))
                     ->disk('local')

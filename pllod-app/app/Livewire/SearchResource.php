@@ -12,20 +12,24 @@ use App\Jobs\healthCheckResourceFile;
 use App\Jobs\ProcessFiles;
 use App\Models\Resource;
 use App\Models\User;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Livewire\Component;
+use Throwable;
 
-class SearchResource extends Component implements HasForms
+class SearchResource extends Component implements HasActions, HasSchemas
 {
-    use InteractsWithForms;
+    use InteractsWithActions;
+    use InteractsWithSchemas;
 
     private const array BANNED_FILES_NAMES = ['license.txt'];
 
@@ -46,10 +50,10 @@ class SearchResource extends Component implements HasForms
         $this->form->fill();
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema($this->getFormSchema());
+        return $schema
+            ->components($this->getFormSchema());
     }
 
     private function getFormSchema(): array
@@ -92,7 +96,7 @@ class SearchResource extends Component implements HasForms
 
         try {
             $item = DSpace::findItemByPid($validated['itemIdentifier'], true);
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             Notification::make()
                 ->title(__('Error'))
                 ->body(fn () => app()->isLocal() ? $th->getMessage() : __('An error occurred while searching for the item, please try again later.'))
@@ -211,22 +215,26 @@ class SearchResource extends Component implements HasForms
             ->success()
             ->send();
 
+        // Le callback then() girano nel worker della coda, dove non c'è un utente autenticato:
+        // l'id va letto qui e passato alle closure.
+        $userId = filament()->auth()->id();
+
         Bus::batch([
             new ProcessFiles(resource: $createdResource, resourceFiles: $attachedFiles),
         ])
             ->allowFailures(false)
-            ->then(function () use ($createdResource) {
+            ->then(function () use ($createdResource, $userId) {
                 $jobs = [];
                 foreach ($createdResource->files as $file) {
                     $jobs[] = new healthCheckResourceFile(resourceFile: $file);
                 }
                 Bus::batch($jobs)
                     ->allowFailures(false)
-                    ->then(function () use ($createdResource) {
+                    ->then(function () use ($createdResource, $userId) {
                         $jobs = [];
                         foreach ($createdResource->files as $file) {
                             if ($file->can_be_opened_in_vocbench) {
-                                $jobs[] = new CreateProjectSemanticTurkey(resourceFile: $file, user: User::query()->find(filament()->auth()->id()));
+                                $jobs[] = new CreateProjectSemanticTurkey(resourceFile: $file, user: User::query()->findOrFail($userId));
                             }
                         }
                         Bus::batch($jobs)

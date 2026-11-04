@@ -2,22 +2,23 @@
 
 namespace App\Forms\Components;
 
-use Filament\Forms\Components\Component;
+use Closure;
+use Filament\Schemas\Components\Component;
 
 class SimpleCollapsibleSection extends Component
 {
     protected string $view = 'forms.components.simple-collapsible-section';
 
-    protected string|\Closure|null $title = null;
+    protected string|Closure|null $title = null;
 
-    protected bool|\Closure $isOpen = true;
+    protected bool|Closure $isOpen = true;
 
     public static function make(): static
     {
         return app(static::class);
     }
 
-    public function title(string|\Closure|null $title): self
+    public function title(string|Closure|null $title): self
     {
         $this->title = $title;
 
@@ -29,7 +30,7 @@ class SimpleCollapsibleSection extends Component
         return $this->evaluate($this->title);
     }
 
-    public function open(bool|\Closure $isOpen = true): self
+    public function open(bool|Closure $isOpen = true): self
     {
         $this->isOpen = $isOpen;
 

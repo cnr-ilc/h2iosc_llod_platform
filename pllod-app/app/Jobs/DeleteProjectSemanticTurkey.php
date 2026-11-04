@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Facades\SemanticTurkey;
+use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -37,7 +38,7 @@ class DeleteProjectSemanticTurkey implements ShouldQueue
                     repositoryGraphDBId: $fileData['graphdb_repository_name']
                 );
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to DELETE project', [
                 'error' => $e,
                 'projectName' => $fileData['st_project_name'],

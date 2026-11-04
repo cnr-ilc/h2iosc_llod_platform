@@ -2,6 +2,7 @@
 
 namespace App\Facades;
 
+use App\Services\DSpace\DSpaceClient;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Facade;
 
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static string refreshToken()
  * @method static string getBaseUrl()
  *
- * @see \App\Services\DSpace\DSpaceClient
+ * @see DSpaceClient
  */
 class DSpace extends Facade
 {

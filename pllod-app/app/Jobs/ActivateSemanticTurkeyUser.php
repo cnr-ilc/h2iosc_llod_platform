@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Facades\SemanticTurkey;
 use App\Models\User;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,7 +41,7 @@ class ActivateSemanticTurkeyUser implements ShouldQueue
             $this->user->semanticTurkeyUser()->update(['is_active' => true]);
 
             Log::info('Semantic Turkey user activated', ['user' => $this->user->email, 'activateUser' => $activateUser]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to activate Semantic Turkey user, retrying in 10 seconds', ['user' => $this->user->email, 'error' => $e->getMessage()]);
             $this->release(10);
         }

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Facades\SemanticTurkey;
 use App\Models\User;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,7 +44,7 @@ class RegisterSemanticTurkeyUser implements ShouldQueue
                 'user_id' => $this->user->id,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to register Semantic Turkey user, retrying in 10 seconds', ['user' => $this->user->email, 'error' => $e->getMessage()]);
             $this->release(10);
         }

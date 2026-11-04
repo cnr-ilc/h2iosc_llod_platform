@@ -8,7 +8,7 @@ use Filament\Pages\Page;
 class ImportResource extends Page
 {
     // Configuration
-    protected static string $view = 'filament.pages.import-resource';
+    protected string $view = 'filament.pages.import-resource';
 
     protected static ?string $slug = 'import-resource';
 

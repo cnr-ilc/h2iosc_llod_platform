@@ -3,7 +3,7 @@
 namespace App\Filament\User\Resources\ResourceResource\Pages;
 
 use App\Filament\User\Resources\ResourceResource;
-use Filament\Actions;
+use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditResource extends EditRecord
@@ -13,7 +13,7 @@ class EditResource extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            DeleteAction::make(),
         ];
     }
 }

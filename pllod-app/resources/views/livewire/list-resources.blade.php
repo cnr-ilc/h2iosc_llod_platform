@@ -33,7 +33,7 @@
         <x-filament::pagination
             :paginator="$resources"
             :page-options="[5, 10, 20, 50, 100, 'all']"
-            :current-page-option-property="$perPage"
+            current-page-option-property="perPage"
             extreme-links
         />
     @else

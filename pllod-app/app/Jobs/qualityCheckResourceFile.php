@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\GeneralStatus;
 use App\Enums\RdfFormat;
 use App\Models\ResourceFile;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -50,7 +51,7 @@ class qualityCheckResourceFile implements ShouldQueue
 
         try {
             $format = RdfFormat::toValidationAPIFormat($this->resourceFile->mime_type)->value;
-            
+
             $response = Http::attach(
                 'file',
                 file_get_contents($filePath),
@@ -72,7 +73,7 @@ class qualityCheckResourceFile implements ShouldQueue
                 $errorMessage = 'Quality check API returned HTTP error '.$response->status().' for file: '.basename($filePath);
                 Log::error($errorMessage, $responseData ?? []);
 
-                throw new \Exception($errorMessage);
+                throw new Exception($errorMessage);
             }
 
             $this->resourceFile->quality_assessment_status = GeneralStatus::SUCCESS;
@@ -81,7 +82,7 @@ class qualityCheckResourceFile implements ShouldQueue
                 $this->resourceFile->quality_score = $responseData['score'];
             }
 
-            if (isset($responseData['report']['suggestions']) && !empty($responseData['report']['suggestions'])) {
+            if (isset($responseData['report']['suggestions']) && ! empty($responseData['report']['suggestions'])) {
                 $this->resourceFile->quality_warnings = $responseData['report']['suggestions'];
                 unset($responseData['report']['suggestions']);
             }
@@ -92,7 +93,7 @@ class qualityCheckResourceFile implements ShouldQueue
 
             $this->resourceFile->quality_assessment_timestamp = now();
             $this->resourceFile->save();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->resourceFile->quality_assessment_status = GeneralStatus::FAILED;
             $this->resourceFile->quality_assessment_timestamp = now();
             $this->resourceFile->save();

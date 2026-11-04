@@ -11,6 +11,6 @@
         <h5 class="text-lg font-medium">{{ $getTitle() }}</h5>
     </div>
     <div x-cloak x-show="isOpen">
-        {{ $getChildComponentContainer() }}
+        {{ $getChildSchema() }}
     </div>
 </div>

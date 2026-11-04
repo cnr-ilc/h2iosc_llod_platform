@@ -13,11 +13,11 @@ class AdminResourcesWidget extends Widget
 {
     protected static ?int $sort = 4;
 
-    protected static string $view = 'filament.widgets.admin-resources-widget';
+    protected string $view = 'filament.widgets.admin-resources-widget';
 
     protected int|string|array $columnSpan = 'full';
 
-    protected static ?string $pollingInterval = '10s';
+    protected ?string $pollingInterval = '10s';
 
     public string $statusFilter = 'all';
 
@@ -28,7 +28,7 @@ class AdminResourcesWidget extends Widget
 
     protected function getPollingInterval(): ?string
     {
-        return static::$pollingInterval;
+        return $this->pollingInterval;
     }
 
     private function getAllSubmittedResources(): Collection

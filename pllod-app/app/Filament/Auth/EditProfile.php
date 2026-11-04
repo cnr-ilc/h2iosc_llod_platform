@@ -2,31 +2,31 @@
 
 namespace App\Filament\Auth;
 
-use Filament\Forms\Components;
-use Filament\Pages\Auth\EditProfile as BaseEditProfile;
+use Filament\Auth\Pages\EditProfile as BaseEditProfile;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
 
 class EditProfile extends BaseEditProfile
 {
-    public function getForms(): array
+    /**
+     * Filament 4+: il form del profilo si definisce con form(Schema) (getForms()/makeForm() non esistono più).
+     * Come in v3 non includiamo getCurrentPasswordFormComponent(): gli utenti Keycloak non hanno una password locale nota.
+     */
+    public function form(Schema $schema): Schema
     {
-        return [
-            'form' => $this->form(
-                $this->makeForm()
-                    ->schema([
-                        $this->getNameFormComponent(),
-                        $this->getLastNameFormComponent(),
-                        $this->getEmailFormComponent(),
-                        $this->getPasswordFormComponent(),
-                        $this->getPasswordConfirmationFormComponent(),
-                    ])
-                    ->statePath('data')
-            ),
-        ];
+        return $schema
+            ->components([
+                $this->getNameFormComponent(),
+                $this->getLastNameFormComponent(),
+                $this->getEmailFormComponent(),
+                $this->getPasswordFormComponent(),
+                $this->getPasswordConfirmationFormComponent(),
+            ]);
     }
 
-    protected function getLastNameFormComponent(): Components\TextInput
+    protected function getLastNameFormComponent(): TextInput
     {
-        return Components\TextInput::make('last_name')
+        return TextInput::make('last_name')
             ->label('Last Name');
     }
 }

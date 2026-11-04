@@ -3,12 +3,16 @@
 namespace App\Filament\User\Resources;
 
 use App\Filament\User\Resources\ResourceResource\Pages;
+use App\Filament\User\Resources\ResourceResource\Pages\ViewResource;
+use App\Filament\User\Resources\ResourceResource\Pages\ViewResourceFiles;
 use App\Models\Resource as ResourceModel;
-use Filament\Forms\Form;
-use Filament\Pages\SubNavigationPosition;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -19,9 +23,9 @@ class ResourceResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     public static function getRecordTitle(?Model $record): string|null|Htmlable
     {
@@ -34,18 +38,18 @@ class ResourceResource extends Resource
 
         if ($page->getRecord()->files->isNotEmpty()) {
             $pages = array_merge($pages, [
-                Pages\ViewResource::class,
-                Pages\ViewResourceFiles::class,
+                ViewResource::class,
+                ViewResourceFiles::class,
             ]);
         }
 
         return $page->generateNavigationItems($pages);
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->components([
                 //
             ]);
     }
@@ -59,12 +63,12 @@ class ResourceResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
+            ->recordActions([
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -83,8 +87,8 @@ class ResourceResource extends Resource
             // 'index' => Pages\ListResources::route('/'),
             // 'create' => Pages\CreateResource::route('/create'),
             // 'edit'   => Pages\EditResource::route('/{record}/edit'),
-            'view' => Pages\ViewResource::route('/{record}'),
-            'files' => Pages\ViewResourceFiles::route('/{record}/files'),
+            'view' => ViewResource::route('/{record}'),
+            'files' => ViewResourceFiles::route('/{record}/files'),
         ];
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Str;
 
 return [
@@ -70,7 +71,7 @@ return [
     |
     */
 
-    'middleware' => ['web', \Filament\Http\Middleware\Authenticate::class, 'can:viewHorizon'],
+    'middleware' => ['web', Authenticate::class, 'can:viewHorizon'],
 
     /*
     |--------------------------------------------------------------------------

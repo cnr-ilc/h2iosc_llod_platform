@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Facades\SemanticTurkey;
 use App\Models\ResourceFile;
 use App\Models\User;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -32,7 +33,7 @@ class CreateProjectSemanticTurkey implements ShouldQueue
      */
     public function handle(): void
     {
-        if (!$this->resourceFile->can_be_opened_in_vocbench) {
+        if (! $this->resourceFile->can_be_opened_in_vocbench) {
             return;
         }
 
@@ -53,12 +54,12 @@ class CreateProjectSemanticTurkey implements ShouldQueue
             $this->resourceFile->update([
                 'st_project_name' => $response['projectName'],
                 'graphdb_repository_name' => $response['graphDBRepositoryName'],
-                'is_synchronising' => false
+                'is_synchronising' => false,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->resourceFile->is_synchronising = false;
             $this->resourceFile->save();
-            
+
             Log::warning('Failed to connect new project with graphdb, retrying in 10 seconds', ['error' => $e->getMessage()]);
             $this->release(10);
         }

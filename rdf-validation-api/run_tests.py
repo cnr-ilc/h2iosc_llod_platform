@@ -3,14 +3,14 @@
 Test runner for the RDF Validation API
 
 Usage:
-    python run_tests.py              # Run all tests
-    python run_tests.py health       # Run only health endpoint tests
-    python run_tests.py quality      # Run only quality endpoint tests
-    python run_tests.py base         # Run only base URI extraction tests
-    python run_tests.py support      # Run only support endpoint tests
-    python run_tests.py suggestions  # Run only suggestions tests
-    python run_tests.py -v           # Verbose output
-    python run_tests.py --coverage   # Run with coverage report
+    uv run run_tests.py              # Run all tests
+    uv run run_tests.py health       # Run only health endpoint tests
+    uv run run_tests.py quality      # Run only quality endpoint tests
+    uv run run_tests.py base         # Run only base URI extraction tests
+    uv run run_tests.py support      # Run only support endpoint tests
+    uv run run_tests.py suggestions  # Run only suggestions tests
+    uv run run_tests.py -v           # Verbose output
+    uv run run_tests.py --coverage   # Run with coverage report
 """
 
 import sys
@@ -19,7 +19,8 @@ import os
 
 def run_tests(test_filter=None, verbose=False, coverage=False):
     """Run pytest with optional filtering"""
-    cmd = ["python", "-m", "pytest", "tests/"]
+    # sys.executable: funziona sia con "uv run" sia dentro il virtualenv del container
+    cmd = [sys.executable, "-m", "pytest", "tests/"]
     
     if coverage:
         cmd.extend(["--cov=src", "--cov-report=html", "--cov-report=term"])

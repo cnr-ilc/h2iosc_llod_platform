@@ -6,12 +6,17 @@ use App\Enums\ResourceUserRole;
 use App\Enums\UserRole;
 use App\Filament\Admin\Resources\Resource\Pages as CustomPages;
 use App\Filament\Admin\Resources\ResourceResource\Pages;
+use App\Filament\Admin\Resources\ResourceResource\Pages\ViewResource;
+use App\Filament\Admin\Resources\ResourceResource\Pages\ViewResourceFiles;
 use App\Models\Resource as ResourceModel;
-use Filament\Forms\Form;
-use Filament\Pages\SubNavigationPosition;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -21,11 +26,11 @@ class ResourceResource extends Resource
 {
     protected static ?string $model = ResourceModel::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationLabel = 'User resources';
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -55,18 +60,18 @@ class ResourceResource extends Resource
 
         if ($page->getRecord()->files->isNotEmpty()) {
             $pages = array_merge($pages, [
-                Pages\ViewResource::class,
-                Pages\ViewResourceFiles::class,
+                ViewResource::class,
+                ViewResourceFiles::class,
             ]);
         }
 
         return $page->generateNavigationItems($pages);
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->components([
                 //
             ]);
     }
@@ -80,13 +85,13 @@ class ResourceResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -106,8 +111,8 @@ class ResourceResource extends Resource
             // 'edit' => Pages\EditResource::route('/{record}/edit'),
             // 'index' => Pages\ListResources::route('/'),
             'index' => CustomPages\ListResource::route('/'),
-            'view' => Pages\ViewResource::route('/{record}'),
-            'files' => Pages\ViewResourceFiles::route('/{record}/files'),
+            'view' => ViewResource::route('/{record}'),
+            'files' => ViewResourceFiles::route('/{record}/files'),
         ];
     }
 }

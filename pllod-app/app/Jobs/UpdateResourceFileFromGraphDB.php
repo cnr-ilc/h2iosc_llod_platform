@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\ResourceFile;
+use Exception;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -49,9 +50,9 @@ class UpdateResourceFileFromGraphDB implements ShouldQueue
         $this->resourceFile->is_synchronising = true;
         $this->resourceFile->save();
 
-        if (!$this->resourceFile->graphdb_repository_name) {
+        if (! $this->resourceFile->graphdb_repository_name) {
             Log::error('GraphDB repository name not found for ResourceFile ID: '.$this->resourceFile->id);
-            throw new \Exception('GraphDB repository name is required');
+            throw new Exception('GraphDB repository name is required');
         }
 
         $graphdbUrl = config('graphdb.host.host_url', 'http://localhost:7200');
@@ -63,7 +64,7 @@ class UpdateResourceFileFromGraphDB implements ShouldQueue
                 'Accept' => $this->resourceFile->mime_type,
             ])->timeout(config('app.timeout', 30))->get($statementsUrl);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $errorMessage = 'GraphDB API returned HTTP error '.$response->status().' for repository: '.$repositoryName;
                 Log::error($errorMessage, [
                     'resource_file_id' => $this->resourceFile->id,
@@ -71,7 +72,7 @@ class UpdateResourceFileFromGraphDB implements ShouldQueue
                     'response_body' => $response->body(),
                 ]);
 
-                throw new \Exception($errorMessage);
+                throw new Exception($errorMessage);
             }
 
             $content = $response->body();
@@ -84,7 +85,7 @@ class UpdateResourceFileFromGraphDB implements ShouldQueue
                     'file_path' => $filePath,
                 ]);
 
-                throw new \Exception($errorMessage);
+                throw new Exception($errorMessage);
             }
 
             $this->resourceFile->size = strlen($content);
@@ -97,10 +98,10 @@ class UpdateResourceFileFromGraphDB implements ShouldQueue
                 'file_size' => $this->resourceFile->size,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->resourceFile->is_synchronising = false;
             $this->resourceFile->save();
-            
+
             Log::error('Error updating ResourceFile from GraphDB: '.$e->getMessage(), [
                 'resource_file_id' => $this->resourceFile->id,
                 'repository_name' => $repositoryName,

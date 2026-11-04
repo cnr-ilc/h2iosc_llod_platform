@@ -18,8 +18,8 @@ enum RdfFormat: string
     public static function fromExtension(string $filename): self
     {
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        
-        return match($extension) {
+
+        return match ($extension) {
             'ttl' => self::TURTLE,
             'rdf', 'owl' => self::XML,
             'nt' => self::NT,
@@ -36,7 +36,7 @@ enum RdfFormat: string
      */
     public static function toValidationAPIFormat(string $mimeType): self
     {
-        return match(strtolower($mimeType)) {
+        return match (strtolower($mimeType)) {
             'text/turtle' => self::TURTLE,
             'application/rdf+xml', 'text/xml', 'application/xml' => self::XML,
             'application/n-triples', 'text/plain' => self::NT,
@@ -53,7 +53,7 @@ enum RdfFormat: string
      */
     public static function toSTFormatName(string $mimeType): string
     {
-        return match(strtolower($mimeType)) {
+        return match (strtolower($mimeType)) {
             'text/turtle' => 'Turtle',
             'application/rdf+xml', 'text/xml', 'application/xml' => 'RDF/XML',
             'application/n-triples', 'text/plain' => 'N-Triples',

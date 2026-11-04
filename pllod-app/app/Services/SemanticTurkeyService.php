@@ -229,7 +229,7 @@ class SemanticTurkeyService
         Log::info('createRemoteAccessProject starting', [
             'resource_file_id' => $resource_file->id,
             'resource_file_name' => $resource_file->name,
-            'project_name' => $projectName
+            'project_name' => $projectName,
         ]);
 
         $formatFile = RdfFormat::toSTFormatName($resource_file->mime_type);
@@ -260,7 +260,7 @@ class SemanticTurkeyService
         Log::info('createRemoteAccessProject sending request', [
             'url' => sprintf('%s/%s/%s', $this->baseUrl, self::SERVICE_PATH, self::CREATE_PROJECT_PATH),
             'project_data' => $projectData,
-            'cookie_header' => $this->getCookieToString($cookies)
+            'cookie_header' => $this->getCookieToString($cookies),
         ]);
 
         $response = Http::asForm()
@@ -271,15 +271,16 @@ class SemanticTurkeyService
             'status_code' => $response->status(),
             'successful' => $response->successful(),
             'headers' => $response->headers(),
-            'body' => $response->body()
+            'body' => $response->body(),
         ]);
 
         if (! $response->successful()) {
             Log::error('createRemoteAccessProject failed', [
                 'status_code' => $response->status(),
                 'error_body' => $response->body(),
-                'project_data' => $projectData
+                'project_data' => $projectData,
             ]);
+
             return ['error' => 'Failed to create project: '.$response->body()];
         }
 
