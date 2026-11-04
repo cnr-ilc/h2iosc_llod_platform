@@ -4,6 +4,14 @@ A Laravel-based platform for managing and sharing linguistic resources as linked
 
 ## Quick Start
 
+All utility commands are in the `Makefile`, split by environment (`dev-*` for `docker-compose-dev.yml`, `prod-*` for `docker-compose.yml`). Run `make` to list them:
+
+```bash
+make              # list of commands
+make dev-up       # start the development stack
+make prod-deploy  # production deploy: DB backup, build, start with healthchecks
+```
+
 ### Setup
 
 Copy and configure environment file:

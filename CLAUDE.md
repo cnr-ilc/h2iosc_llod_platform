@@ -13,6 +13,8 @@ This is the CLARIN Linked Open Data (LLOD) Repository, a Laravel-based platform 
 
 ## Common Commands
 
+`make` lists the utility commands (Makefile, GNU Make 3.81 compatible): `dev-*` targets use `docker-compose-dev.yml`, `prod-*` targets use `docker-compose.yml`. Pass arguments with `ARGS="..."`, pick a service with `SERVICE=...`, a backup with `FILE=...`; `V=1` echoes the docker commands, `YES=1` skips confirmations.
+
 ### Development Environment
 ```bash
 # Start development environment with Laravel, queue, logs, and Vite
