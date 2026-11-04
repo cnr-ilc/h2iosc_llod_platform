@@ -1,34 +1,68 @@
 # 🧬 PLLOD — comandi di utilità
 #
-#   make                 elenco dei comandi
-#   make <comando> V=1   mostra anche i comandi docker eseguiti
-#   YES=1 make ...       salta le conferme (per script)
+#   make                  elenco dei comandi
+#   make dev-env-init     crea .env.dev preconfigurato (poi: make dev-up)
+#   make <comando> V=1    mostra anche i comandi docker eseguiti
+#   YES=1 make ...        salta le conferme (per script)
+#   CHECK=0 make ...      salta il controllo della configurazione
+#
+# Ogni ambiente ha il suo compose e il suo file env:
+#   dev-*   docker-compose.dev.yml  + .env.dev   (modello: .env.dev.example)
+#   prod-*  docker-compose.prod.yml + .env.prod  (modello: .env.prod.example)
+# Prima di ogni comando docker/preflight.sh valida Docker, il file env e il compose:
+# se qualcosa non va il comando non parte.
 #
 # Compatibile con GNU Make 3.81 (macOS) e successivi.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
+SELF := $(lastword $(MAKEFILE_LIST))
 
-DC_DEV  := docker compose -f docker-compose-dev.yml
-DC_PROD := docker compose -f docker-compose.yml
+DC_DEV  := docker compose -f docker-compose.dev.yml --env-file .env.dev
+DC_PROD := docker compose -f docker-compose.prod.yml --env-file .env.prod
 
 ARGS        ?=
 SERVICE     ?=
 FILE        ?=
+FROM        ?=
+CHECK       ?= 1
 BACKUP_DIR  ?= backups
-VB_DATA_DIR ?= vocbench3-docker/volumes
 TOOLS_IMAGE ?= alpine:3.22
 
-TS           := $(shell date +%Y%m%d-%H%M%S)
-LARAVEL_PORT := $(or $(shell sed -n 's/^LARAVEL_PORT=//p' .env 2>/dev/null | tr -d '"' | tail -n 1),8080)
-HOST_UID     := $(shell id -u)
-HOST_GID     := $(shell id -g)
+TS       := $(shell date +%Y%m%d-%H%M%S)
+HOST_UID := $(shell id -u)
+HOST_GID := $(shell id -g)
+
+# Valore di una variabile nel file env di un ambiente: $(call env_get,dev,LARAVEL_PORT).
+# Come per docker compose, una variabile della shell o della riga di comando ha la precedenza.
+env_get = $(or $($(2)),$(shell sed -n 's/^[[:space:]]*$(2)[[:space:]]*=[[:space:]]*//p' .env.$(1) 2>/dev/null | tail -n 1 | tr -d "\"'"))
+
+DEV_PORT    := $(or $(call env_get,dev,LARAVEL_PORT),8080)
+PROD_PORT   := $(or $(call env_get,prod,LARAVEL_PORT),8080)
+DEV_VB_DIR  := $(or $(call env_get,dev,VB_DATA_DIR),./vocbench3-docker/volumes)
+PROD_VB_DIR := $(or $(call env_get,prod,VB_DATA_DIR),./vocbench3-docker/volumes)
 
 ifeq ($(V),1)
   Q :=
 else
   Q := @
 endif
+
+# 🔎 Controllo della configurazione: prerequisito di ogni comando dev-* / prod-* (tranne
+# *-env-init e *-check). I comandi che ne lanciano altri passano PREFLIGHT_DONE=1.
+preflight = if [ "$(CHECK)" != "0" ] && [ "$(PREFLIGHT_DONE)" != "1" ]; then bash docker/preflight.sh $(1) --quiet; fi
+
+DEV_TARGETS  := $(filter-out dev-env-init dev-check,$(shell sed -n 's/^\(dev-[a-z0-9-]*\):.*/\1/p' $(SELF)))
+PROD_TARGETS := $(filter-out prod-env-init prod-check,$(shell sed -n 's/^\(prod-[a-z0-9-]*\):.*/\1/p' $(SELF)))
+
+$(DEV_TARGETS): _dev-preflight
+$(PROD_TARGETS): _prod-preflight
+
+.PHONY: _dev-preflight _prod-preflight
+_dev-preflight:
+	@$(call preflight,dev)
+_prod-preflight:
+	@$(call preflight,prod)
 
 # Conferma digitando una parola (saltata con YES=1): $(call confirm,messaggio,PAROLA)
 confirm = if [ "$(YES)" != "1" ]; then read -r -p "⚠️  $(1) Scrivi $(2) per confermare: " ans; [ "$$ans" = "$(2)" ] || { echo "❌ Annullato"; exit 1; }; fi
@@ -51,13 +85,14 @@ $(Q)set -o pipefail; if [[ "$(FILE)" == *.gz ]]; then gunzip -c "$(FILE)"; else 
 @echo "✅ Database $(2) ripristinato"
 endef
 
-# Backup dei dati VocBench/GraphDB (bind mount), con i due servizi fermi: $(call vb_backup,<docker compose>,<etichetta>)
+# Backup dei dati VocBench/GraphDB (bind mount), con i due servizi fermi:
+# $(call vb_backup,<docker compose>,<etichetta>,<cartella dati>)
 define vb_backup
 @echo "⏸️  Fermo vocbench3 e graphdb per una copia coerente..."
 $(Q)mkdir -p $(BACKUP_DIR)
 $(Q)$(1) stop vocbench3 graphdb; \
-	echo "📦 Archivio $(VB_DATA_DIR)..."; \
-	docker run --rm -v "$(abspath $(VB_DATA_DIR))":/data:ro -v "$(abspath $(BACKUP_DIR))":/backup $(TOOLS_IMAGE) \
+	echo "📦 Archivio $(3)..."; \
+	docker run --rm -v "$(abspath $(3))":/data:ro -v "$(abspath $(BACKUP_DIR))":/backup $(TOOLS_IMAGE) \
 		sh -c 'tar -czf /backup/vocbench-$(2)-$(TS).tar.gz -C /data . && chown $(HOST_UID):$(HOST_GID) /backup/vocbench-$(2)-$(TS).tar.gz'; \
 	rc=$$?; echo "▶️  Riavvio graphdb e vocbench3..."; $(1) start graphdb vocbench3; \
 	[ $$rc -eq 0 ] && echo "✅ Backup salvato: $(BACKUP_DIR)/vocbench-$(2)-$(TS).tar.gz ($$(du -h $(BACKUP_DIR)/vocbench-$(2)-$(TS).tar.gz | cut -f1))" || echo "❌ Backup non riuscito"; exit $$rc
@@ -65,21 +100,24 @@ endef
 
 ##@ 🧰 Generale
 
-.PHONY: help config-check
+.PHONY: help
 
 help: ## 📖 Mostra questo elenco
-	@printf "\n🧬 \033[1mPLLOD\033[0m — comandi di utilità   \033[2m(V=1 mostra i comandi · YES=1 salta le conferme)\033[0m\n"
+	@printf "\n🧬 \033[1mPLLOD\033[0m — comandi di utilità   \033[2m(V=1 mostra i comandi · YES=1 salta le conferme · CHECK=0 salta il controllo)\033[0m\n"
 	@awk 'BEGIN {FS = ":.*## "} /^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5)} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
 
-config-check: ## 🔍 Valida i file docker compose di sviluppo e produzione
-	@echo "🔍 Verifico docker-compose-dev.yml..."
-	$(Q)$(DC_DEV) config -q
-	@echo "🔍 Verifico docker-compose.yml..."
-	$(Q)$(DC_PROD) config -q
-	@echo "✅ Configurazioni valide"
+##@ 💻 Sviluppo · configurazione (.env.dev)
 
-##@ 💻 Sviluppo · stack (docker-compose-dev.yml)
+.PHONY: dev-env-init dev-check
+
+dev-env-init: ## 🆕 Crea .env.dev dal modello: APP_KEY e password generate (FROM=file da cui importare le credenziali)
+	@bash docker/env-init.sh dev $(FROM)
+
+dev-check: ## 🔎 Valida .env.dev e docker-compose.dev.yml (avviene da sé prima di ogni comando dev-*)
+	@bash docker/preflight.sh dev
+
+##@ 💻 Sviluppo · stack (docker-compose.dev.yml)
 
 .PHONY: dev-up dev-down dev-restart dev-build dev-ps dev-logs dev-shell dev-reset
 
@@ -87,7 +125,7 @@ dev-up: ## 🚀 Avvia lo stack di sviluppo (build se serve)
 	@echo "🚀 Avvio lo stack di sviluppo..."
 	@echo "⏳ Al primo avvio composer install e build degli asset richiedono qualche minuto"
 	$(Q)$(DC_DEV) up -d --build --wait --wait-timeout 900
-	@echo "✅ Pronto: app http://localhost:$(LARAVEL_PORT) · VocBench http://localhost:1979/vocbench3"
+	@echo "✅ Pronto: app http://localhost:$(DEV_PORT) · VocBench http://localhost:1979/vocbench3"
 
 dev-down: ## 🛑 Ferma lo stack di sviluppo (i volumi restano)
 	@echo "🛑 Fermo lo stack di sviluppo..."
@@ -116,8 +154,8 @@ dev-shell: ## 🐚 Shell in un container (default laravel_app, SERVICE=python_ap
 	@echo "🐚 Shell in $(or $(SERVICE),laravel_app)..."
 	$(Q)$(DC_DEV) exec $(or $(SERVICE),laravel_app) sh -c 'command -v bash >/dev/null && exec bash || exec sh'
 
-dev-reset: ## 💣 Ferma lo stack ed elimina i volumi di sviluppo (DB, Redis, storage)
-	@$(call confirm,Verranno eliminati i volumi di sviluppo: database Redis e storage.,RESET)
+dev-reset: ## 💣 Ferma lo stack ed elimina i volumi di sviluppo (database e Redis)
+	@$(call confirm,Verranno eliminati i volumi di sviluppo: database e Redis.,RESET)
 	@echo "💣 Elimino container e volumi di sviluppo..."
 	$(Q)$(DC_DEV) down -v
 	@echo "✅ Ambiente di sviluppo azzerato: make dev-up per ripartire"
@@ -237,8 +275,8 @@ dev-redis-cli: ## 🧠 redis-cli (ARGS="info memory")
 	@echo "🧠 redis-cli $(ARGS)"
 	$(Q)$(DC_DEV) exec redis redis-cli $(ARGS)
 
-dev-vocbench-backup: ## 💾 Backup dei dati VocBench/GraphDB di sviluppo
-	$(call vb_backup,$(DC_DEV),dev)
+dev-vocbench-backup: ## 💾 Backup dei dati VocBench/GraphDB di sviluppo (VB_DATA_DIR)
+	$(call vb_backup,$(DC_DEV),dev,$(DEV_VB_DIR))
 
 dev-outdated: ## 📊 Dipendenze aggiornabili (Composer, Bun, uv)
 	@echo "📊 Composer (dirette):"
@@ -255,23 +293,33 @@ dev-py-upgrade: ## ⬆️  Aggiorna uv.lock dell'API Python alle ultime versioni
 	$(Q)$(DC_DEV) exec python_api uv sync --locked --no-install-project
 	@echo "✅ uv.lock aggiornato: make dev-py-test per verificare"
 
-##@ 🏭 Produzione · stack (docker-compose.yml)
+##@ 🏭 Produzione · configurazione (.env.prod)
+
+.PHONY: prod-env-init prod-check
+
+prod-env-init: ## 🆕 Crea .env.prod: riprende il vecchio .env (o FROM=...) se c'è, altrimenti dal modello con segreti generati
+	@bash docker/env-init.sh prod $(FROM)
+
+prod-check: ## 🔎 Valida .env.prod e docker-compose.prod.yml (avviene da sé prima di ogni comando prod-*)
+	@bash docker/preflight.sh prod
+
+##@ 🏭 Produzione · stack (docker-compose.prod.yml)
 
 .PHONY: prod-deploy prod-up prod-down prod-restart prod-build prod-ps prod-status prod-logs prod-shell
 
 prod-deploy: ## 🚢 Deploy dopo il git pull: backup DB, build, avvio con healthcheck
 	@echo "🚢 Deploy di produzione"
 	@if $(DC_PROD) ps --status running --services 2>/dev/null | grep -qx mariadb; then \
-		$(MAKE) --no-print-directory prod-db-backup; \
+		$(MAKE) --no-print-directory PREFLIGHT_DONE=1 prod-db-backup; \
 	else echo "ℹ️  MariaDB non è in esecuzione: salto il backup"; fi
 	@echo "🏗️  Build delle immagini..."
 	$(Q)$(DC_PROD) build
 	@echo "🚀 Avvio dei container (migrazioni e cache partono da sole all'avvio)..."
 	$(Q)$(DC_PROD) up -d --remove-orphans --wait --wait-timeout 600
 	@echo "🎉 Deploy completato"
-	@$(MAKE) --no-print-directory prod-status
+	@$(MAKE) --no-print-directory PREFLIGHT_DONE=1 prod-status
 
-prod-up: ## 🚀 Avvia lo stack di produzione senza ricostruire
+prod-up: ## 🚀 Avvia lo stack di produzione senza ricostruire (applica le modifiche a .env.prod)
 	@echo "🚀 Avvio lo stack di produzione..."
 	$(Q)$(DC_PROD) up -d --wait --wait-timeout 600
 	@echo "✅ Stack avviato"
@@ -282,7 +330,7 @@ prod-down: ## 🛑 Ferma lo stack di produzione (i volumi restano)
 	$(Q)$(DC_PROD) down
 	@echo "✅ Stack fermato"
 
-prod-restart: ## 🔄 Riavvia lo stack o un servizio (SERVICE=laravel_app); rilegge il .env
+prod-restart: ## 🔄 Riavvia lo stack o un servizio (SERVICE=laravel_app)
 	@echo "🔄 Riavvio $(or $(SERVICE),tutti i servizi)..."
 	$(Q)$(DC_PROD) restart $(SERVICE)
 	@echo "✅ Riavviato"
@@ -299,8 +347,8 @@ prod-ps: ## 📋 Stato dei container di produzione
 prod-status: ## 🩺 Stato: container, risposta dell'app (/up) e Horizon
 	@echo "📋 Container:"
 	$(Q)$(DC_PROD) ps
-	@code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(LARAVEL_PORT)/up); \
-		[ "$$code" = "200" ] && echo "🩺 App http://127.0.0.1:$(LARAVEL_PORT)/up: ✅ $$code" || echo "🩺 App http://127.0.0.1:$(LARAVEL_PORT)/up: ❌ $$code"
+	@code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(PROD_PORT)/up); \
+		[ "$$code" = "200" ] && echo "🩺 App http://127.0.0.1:$(PROD_PORT)/up: ✅ $$code" || echo "🩺 App http://127.0.0.1:$(PROD_PORT)/up: ❌ $$code"
 	@printf "🧵 Horizon: "
 	$(Q)$(DC_PROD) exec -T laravel_horizon php artisan horizon:status --no-ansi | sed -e 's/^ *//' -e '/^$$/d' || true
 
@@ -330,7 +378,7 @@ prod-migrate: ## 🗃️  Migrazioni manuali (di norma partono da sole all'avvio
 	$(Q)$(DC_PROD) exec laravel_app php artisan migrate --force
 	@echo "✅ Migrazioni eseguite"
 
-prod-optimize: ## ⚡ Rigenera le cache di config, route e view dell'app
+prod-optimize: ## ⚡ Rigenera le cache di config, route e view (dopo una modifica a .env.prod)
 	@echo "⚡ optimize:clear + optimize..."
 	$(Q)$(DC_PROD) exec laravel_app sh -c 'php artisan optimize:clear && php artisan optimize'
 	@echo "✅ Cache rigenerate"
@@ -373,5 +421,5 @@ prod-redis-cli: ## 🧠 redis-cli (ARGS="info memory")
 	@echo "🧠 redis-cli $(ARGS)"
 	$(Q)$(DC_PROD) exec redis redis-cli $(ARGS)
 
-prod-vocbench-backup: ## 💾 Backup dei dati VocBench/GraphDB (li ferma durante la copia)
-	$(call vb_backup,$(DC_PROD),prod)
+prod-vocbench-backup: ## 💾 Backup dei dati VocBench/GraphDB (li ferma durante la copia; VB_DATA_DIR)
+	$(call vb_backup,$(DC_PROD),prod,$(PROD_VB_DIR))

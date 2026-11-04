@@ -13,22 +13,23 @@ This is the CLARIN Linked Open Data (LLOD) Repository, a Laravel-based platform 
 
 ## Common Commands
 
-`make` lists the utility commands (Makefile, GNU Make 3.81 compatible): `dev-*` targets use `docker-compose-dev.yml`, `prod-*` targets use `docker-compose.yml`. Pass arguments with `ARGS="..."`, pick a service with `SERVICE=...`, a backup with `FILE=...`; `V=1` echoes the docker commands, `YES=1` skips confirmations.
+`make` lists the utility commands (Makefile, GNU Make 3.81 compatible). Each environment has its own compose file and env file, passed with `--env-file` and mounted read-only as `.env` in the Laravel containers:
+
+- `dev-*` → `docker-compose.dev.yml` + `.env.dev` (template `.env.dev.example`, project `pllod-dev`, containers `pllod-dev-<service>`)
+- `prod-*` → `docker-compose.prod.yml` + `.env.prod` (template `.env.prod.example`, project = directory name)
+
+`docker/preflight.sh dev|prod` runs before every `dev-*`/`prod-*` target and blocks it on errors: Docker/Compose, env file present, required variables, `APP_KEY` format, hosts matching the compose containers, `VB_DATA_DIR` folders, `docker compose config` without unset variables. `make dev-check`/`make prod-check` print the full report; `CHECK=0` skips it. `make dev-env-init`/`make prod-env-init` (`docker/env-init.sh`) create the env file with generated `APP_KEY` and DB passwords. Pass arguments with `ARGS="..."`, pick a service with `SERVICE=...`, a backup with `FILE=...`; `V=1` echoes the docker commands, `YES=1` skips confirmations. Never print or commit `.env.dev`/`.env.prod`.
 
 ### Development Environment
 ```bash
-# Start development environment with Laravel, queue, logs, and Vite
-cd pllod-app && composer dev
+make dev-env-init                    # Create .env.dev (then fill in the external credentials)
+make dev-up                          # Build and start the stack: http://localhost:8080
+make dev-logs SERVICE=laravel_horizon
+make dev-artisan ARGS="route:list"
+make dev-ci                          # Pint --test, Pest, pytest
 
-# Individual services
-php artisan serve                    # Start Laravel server
-php artisan queue:listen --tries=1  # Start queue worker
-php artisan pail --timeout=0        # View logs
-bun run dev                          # Start Vite dev server
-
-# Docker development
-docker-compose up -d                 # Start all services
-docker-compose logs -f laravel_app   # View Laravel logs
+# Without Docker (needs its own pllod-app/.env with local hosts)
+cd pllod-app && composer dev         # Laravel, queue, logs and Vite
 ```
 
 ### Testing
@@ -93,12 +94,13 @@ php artisan make:super-admin
 5. Publication to DSpace repository
 
 ### Docker Services
-Only `laravel_app` (127.0.0.1:8080) and `vocbench3` (127.0.0.1:1979) publish ports; the rest talk by name on Docker networks.
+Only `laravel_app` (127.0.0.1:`LARAVEL_PORT`, default 8080) and `vocbench3` (127.0.0.1:1979) publish ports; the rest talk by name on Docker networks.
 `llod_data` and `llod_graph` are `internal` (no internet); `llod_network` is the only one with outbound access.
-- `laravel_app` - Main Laravel application (port 8080; networks: llod_network, llod_data, llod_graph)
-- `laravel_horizon` - Queue processing (llod_network, llod_data, llod_graph)
-- `mariadb` - Database (llod_data)
-- `redis` - Queue and cache (llod_data)
-- `python_api` - RDF validation service, FastAPI + uv (llod_network: needs internet for URI checks)
-- `vocbench3` - Semantic annotation (port 1979; llod_network, llod_graph)
-- `graphdb` - Triple store, `http://graphdb:7200` (llod_graph only)
+Hostnames to use in the env file (dev container / prod container); the service name also resolves in both:
+- `laravel_app` - Main Laravel application (`pllod-dev-app` / `llod_laravel_app`; llod_network, llod_data, llod_graph)
+- `laravel_horizon` - Queue processing (`pllod-dev-horizon` / `llod_laravel_horizon`; llod_network, llod_data, llod_graph)
+- `mariadb` - Database (`pllod-dev-mariadb` / `mariadb`; llod_data)
+- `redis` - Sessions, cache and queues (`pllod-dev-redis` / `llod_redis`; llod_data)
+- `python_api` - RDF validation service, FastAPI + uv (`pllod-dev-python-api` / `llod_python_api`, port 8000; llod_network: needs internet for URI checks)
+- `vocbench3` - Semantic annotation (`pllod-dev-vocbench` / `vocbench`, port 1979; llod_network, llod_graph)
+- `graphdb` - Triple store (`pllod-dev-graphdb` / `graphdb`, port 7200; llod_graph only)

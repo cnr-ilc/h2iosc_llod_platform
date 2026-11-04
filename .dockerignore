@@ -1,7 +1,6 @@
 .git
 .env
 .env.*
-!.env.example
 RestContract
 vocbench3-docker
 rdf-validation-api

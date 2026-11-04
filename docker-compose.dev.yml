@@ -1,16 +1,25 @@
+# 💻 Ambiente di SVILUPPO — si usa con .env.dev (make dev-*)
+#   docker compose -f docker-compose.dev.yml --env-file .env.dev ...
+#
+# Progetto "pllod-dev" (volumi pllod-dev_*): separato dalla produzione anche sulla stessa macchina.
+# Per cambiarlo imposta COMPOSE_PROJECT_NAME in .env.dev.
+# Container e hostname seguono lo schema pllod-dev-<servizio>: sono i nomi da usare in .env.dev.
+name: pllod-dev
+
 services:
-  # MariaDB Database for Laravel
+  # MariaDB (solo rete interna llod_data)
   mariadb:
     image: mariadb:13.0.2
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    container_name: llod_mariadb
+    container_name: pllod-dev-mariadb
+    hostname: pllod-dev-mariadb
     restart: always
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${DB_DATABASE}
       MARIADB_USER: ${DB_USERNAME}
       MARIADB_PASSWORD: ${DB_PASSWORD}
-      # Aggiorna le tabelle di sistema dei dati creati con MariaDB 10.11
+      # Aggiorna le tabelle di sistema dei dati creati con versioni precedenti
       MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - mariadb_data:/var/lib/mysql
@@ -23,31 +32,47 @@ services:
       timeout: 5s
       retries: 10
 
-  # Redis for Laravel queues and caching
+  # Redis per code e cache (solo rete interna llod_data)
   redis:
     image: redis:8.10.3-alpine
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    container_name: llod_redis
+    container_name: pllod-dev-redis
+    hostname: pllod-dev-redis
     restart: always
     volumes:
       - redis_data:/data
     networks:
       - llod_data
 
-  # Laravel Application (serversideup/php 8.5 fpm-nginx)
+  # Laravel (serversideup/php 8.5 fpm-nginx), codice montato dall'host
   laravel_app:
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
-      target: production
+      target: development
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    container_name: llod_laravel_app
+    container_name: pllod-dev-app
+    hostname: pllod-dev-app
     restart: always
+    environment:
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION_SEED: "true"
+      AUTORUN_LARAVEL_OPTIMIZE: "false"
+      AUTORUN_LARAVEL_CONFIG_CACHE: "false"
+      AUTORUN_LARAVEL_ROUTE_CACHE: "false"
+      AUTORUN_LARAVEL_VIEW_CACHE: "false"
+      AUTORUN_LARAVEL_EVENT_CACHE: "false"
     volumes:
-      - pllod-storage:/var/www/html/storage
-      - .env:/var/www/html/.env
-    # Unico punto d'ingresso dell'app: solo su loopback, davanti c'è il reverse proxy dell'host
+      - ./pllod-app/:/var/www/html
+      # Sintassi estesa: se .env.dev manca Docker dà errore invece di creare una cartella vuota
+      - type: bind
+        source: ./.env.dev
+        target: /var/www/html/.env
+        read_only: true
     ports:
       - "127.0.0.1:${LARAVEL_PORT:-8080}:8080"
     depends_on:
@@ -60,23 +85,31 @@ services:
       - llod_data
       - llod_graph
 
-  # Laravel Horizon for queue processing
+  # Horizon (code Redis)
   laravel_horizon:
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
-      target: production
+      target: development
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    container_name: llod_laravel_horizon
+    container_name: pllod-dev-horizon
+    hostname: pllod-dev-horizon
     restart: always
     command: ["php", "/var/www/html/artisan", "horizon"]
     stop_signal: SIGTERM
     environment:
       AUTORUN_ENABLED: "false"
+      DEV_SETUP_ENABLED: "false"
     volumes:
-      - pllod-storage:/var/www/html/storage
-      - .env:/var/www/html/.env
+      - ./pllod-app/:/var/www/html
+      - type: bind
+        source: ./.env.dev
+        target: /var/www/html/.env
+        read_only: true
     healthcheck:
       test: ["CMD", "healthcheck-horizon"]
       start_period: 10s
@@ -92,32 +125,37 @@ services:
       - llod_data
       - llod_graph
 
-  # Python RDF Validation API (chiamata solo da app/horizon; esce su internet per verificare gli URI)
+  # API Python di validazione RDF: codice montato con reload automatico, nessuna porta pubblicata
+  # (test: make dev-py-test)
   python_api:
     build:
       context: ./rdf-validation-api
       dockerfile: Dockerfile
-      target: production
+      target: development
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    container_name: llod_python_api
+    container_name: pllod-dev-python-api
+    hostname: pllod-dev-python-api
     restart: always
+    volumes:
+      - ./rdf-validation-api:/app
     networks:
       - llod_network
 
+  # VocBench 3 / Semantic Turkey: il browser lo apre su http://localhost:1979/vocbench3
   vocbench3:
-    container_name: vocbench
+    container_name: pllod-dev-vocbench
+    hostname: pllod-dev-vocbench
     restart: always
     build:
       context: ./vocbench3-docker/14.0.0
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
-    # Il browser degli utenti apre VocBench (VOCBENCH_URL): solo su loopback, davanti c'è il reverse proxy dell'host
     ports:
     - "127.0.0.1:1979:1979"
     volumes:
      - type: bind
-       source: ./vocbench3-docker/volumes/stdata
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/stdata
        target: /opt/vocbench3/data
     depends_on:
       - graphdb
@@ -125,8 +163,10 @@ services:
       - llod_network
       - llod_graph
 
-  # Triple store: raggiungibile solo da VocBench e app/horizon (http://graphdb:7200), nessuna porta pubblicata
+  # GraphDB (solo rete interna llod_graph)
   graphdb:
+    container_name: pllod-dev-graphdb
+    hostname: pllod-dev-graphdb
     restart: always
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
@@ -134,7 +174,7 @@ services:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     volumes:
      - type: bind
-       source: ./vocbench3-docker/volumes/gdbhome
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/gdbhome
        target: /opt/graphdb/home
     networks:
       - llod_graph
@@ -142,10 +182,9 @@ services:
 volumes:
   mariadb_data:
   redis_data:
-  pllod-storage:
 
 networks:
-  # Unica rete con accesso a internet (DSpace, Keycloak, verifica URI) e porte pubblicate
+  # Unica rete con accesso a internet e porte pubblicate
   llod_network:
     driver: bridge
   # Reti interne (internal: niente internet, niente porte pubblicate): i servizi si chiamano per nome
@@ -154,4 +193,4 @@ networks:
     internal: true
   llod_graph:
     driver: bridge
-    internal: true 
+    internal: true

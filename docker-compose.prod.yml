@@ -1,3 +1,8 @@
+# 🏭 Ambiente di PRODUZIONE — si usa con .env.prod (make prod-*)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod ...
+#
+# Nessun "name:": il progetto prende il nome della cartella, così sul server restano in uso
+# i volumi esistenti (<cartella>_mariadb_data, ...). Non impostarlo senza migrare i dati.
 services:
   # MariaDB Database for Laravel
   mariadb:
@@ -39,25 +44,19 @@ services:
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
-      target: development
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
+      target: production
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_app
     restart: always
-    environment:
-      AUTORUN_ENABLED: "true"
-      AUTORUN_LARAVEL_MIGRATION_SEED: "true"
-      AUTORUN_LARAVEL_OPTIMIZE: "false"
-      AUTORUN_LARAVEL_CONFIG_CACHE: "false"
-      AUTORUN_LARAVEL_ROUTE_CACHE: "false"
-      AUTORUN_LARAVEL_VIEW_CACHE: "false"
-      AUTORUN_LARAVEL_EVENT_CACHE: "false"
     volumes:
-      - ./pllod-app/:/var/www/html
-      - .env:/var/www/html/.env
+      - pllod-storage:/var/www/html/storage
+      # Sintassi estesa: se .env.prod manca Docker dà errore invece di creare una cartella vuota
+      - type: bind
+        source: ./.env.prod
+        target: /var/www/html/.env
+        read_only: true
+    # Unico punto d'ingresso dell'app: solo su loopback, davanti c'è il reverse proxy dell'host
     ports:
       - "127.0.0.1:${LARAVEL_PORT:-8080}:8080"
     depends_on:
@@ -75,10 +74,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/laravel/Dockerfile
-      target: development
-      args:
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
+      target: production
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_laravel_horizon
@@ -87,10 +83,13 @@ services:
     stop_signal: SIGTERM
     environment:
       AUTORUN_ENABLED: "false"
-      DEV_SETUP_ENABLED: "false"
     volumes:
-      - ./pllod-app/:/var/www/html
-      - .env:/var/www/html/.env
+      - pllod-storage:/var/www/html/storage
+      # Sintassi estesa: se .env.prod manca Docker dà errore invece di creare una cartella vuota
+      - type: bind
+        source: ./.env.prod
+        target: /var/www/html/.env
+        read_only: true
     healthcheck:
       test: ["CMD", "healthcheck-horizon"]
       start_period: 10s
@@ -106,19 +105,16 @@ services:
       - llod_data
       - llod_graph
 
-  # Python RDF Validation API: codice montato con reload automatico, nessuna porta pubblicata
-  # (test: docker compose -f docker-compose-dev.yml exec python_api pytest)
+  # Python RDF Validation API (chiamata solo da app/horizon; esce su internet per verificare gli URI)
   python_api:
     build:
       context: ./rdf-validation-api
       dockerfile: Dockerfile
-      target: development
+      target: production
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     container_name: llod_python_api
     restart: always
-    volumes:
-      - ./rdf-validation-api:/app
     networks:
       - llod_network
 
@@ -129,11 +125,12 @@ services:
       context: ./vocbench3-docker/14.0.0
       platforms:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    # Il browser degli utenti apre VocBench (VOCBENCH_URL): solo su loopback, davanti c'è il reverse proxy dell'host
     ports:
     - "127.0.0.1:1979:1979"
     volumes:
      - type: bind
-       source: ./vocbench3-docker/volumes/stdata
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/stdata
        target: /opt/vocbench3/data
     depends_on:
       - graphdb
@@ -141,8 +138,8 @@ services:
       - llod_network
       - llod_graph
 
+  # Triple store: raggiungibile solo da VocBench e app/horizon (http://graphdb:7200), nessuna porta pubblicata
   graphdb:
-    container_name: graphdb
     restart: always
     build:
       context: ./vocbench3-docker/helpers/graphdb-with-st-sails
@@ -150,7 +147,7 @@ services:
         - ${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
     volumes:
      - type: bind
-       source: ./vocbench3-docker/volumes/gdbhome
+       source: ${VB_DATA_DIR:-./vocbench3-docker/volumes}/gdbhome
        target: /opt/graphdb/home
     networks:
       - llod_graph
@@ -161,7 +158,7 @@ volumes:
   pllod-storage:
 
 networks:
-  # Unica rete con accesso a internet e porte pubblicate
+  # Unica rete con accesso a internet (DSpace, Keycloak, verifica URI) e porte pubblicate
   llod_network:
     driver: bridge
   # Reti interne (internal: niente internet, niente porte pubblicate): i servizi si chiamano per nome
