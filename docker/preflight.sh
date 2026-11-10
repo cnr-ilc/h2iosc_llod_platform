@@ -279,6 +279,14 @@ if [ "$env_ok" = 1 ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 📦 Archivi VocBench in Git LFS: senza git-lfs il clone ha il puntatore di testo, non lo zip
+# ---------------------------------------------------------------------------
+vb_zip=vocbench3-docker/14.0.0/vocbench3-14.0.0-full.zip
+if [ -f "$vb_zip" ] && head -c 40 "$vb_zip" | grep -q '^version https://git-lfs'; then
+  err "$vb_zip è un puntatore Git LFS, non lo zip: la build di VocBench fallirebbe. Installa git-lfs e scarica gli archivi con  git lfs install && git lfs pull"
+fi
+
+# ---------------------------------------------------------------------------
 # Esito
 # ---------------------------------------------------------------------------
 if [ "$errors" -gt 0 ]; then

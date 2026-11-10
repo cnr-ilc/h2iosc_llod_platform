@@ -13,6 +13,8 @@ All utility commands are in the `Makefile`; run `make` to list them. Each enviro
 
 The env file is passed to Docker Compose with `--env-file` and mounted read-only as `.env` in the Laravel containers. `.env.dev` and `.env.prod` contain secrets and are not versioned.
 
+The VocBench `*.zip` archives are stored with [Git LFS](https://git-lfs.com): install `git-lfs` before cloning, or run `git lfs install && git lfs pull` in a clone made without it.
+
 ### Development
 
 ```bash
@@ -40,6 +42,7 @@ Before every `dev-*` / `prod-*` command `docker/preflight.sh` validates the conf
 - the service hosts (`DB_HOST`, `REDIS_HOST`, `SEMANTIC_TURKEY_BASE_URL`, `GRAPHDB_HOST_URL`, `PY_QUALITY_CHECK_SERVICE_URL`) match the containers and ports of that environment's compose file
 - the image architecture (`DOCKER_DEFAULT_PLATFORM`, `linux/amd64` or `linux/arm64`) matches Docker's: in dev a mismatch is a warning (the images run emulated, much slower), in production an error; images already built for the other architecture are reported
 - the VocBench/GraphDB data folders (`VB_DATA_DIR`) exist
+- the VocBench zip is the real archive, not a Git LFS pointer
 - `docker compose config` is valid and every interpolated variable is defined
 - production only: `APP_ENV=production`, `APP_DEBUG=false`, external credentials set, public `VOCBENCH_URL`
 
