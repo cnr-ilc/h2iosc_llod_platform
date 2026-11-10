@@ -1,0 +1,44 @@
+stages:
+  - mirror
+
+# Mirror di main su GitHub (cnr-ilc/h2iosc_llod_platform) a ogni aggiornamento.
+#
+# Richiede la variabile CI/CD GITHUB_MIRROR_SSH_KEY (tipo File, Protected):
+# chiave privata di una deploy key GitHub con accesso in scrittura al repo.
+#
+# Il push non è forzato: se main su GitHub diverge (commit fatti direttamente
+# lì) il job fallisce invece di sovrascriverli.
+mirror:github:
+  stage: mirror
+  image: alpine:3.24
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  # Un push alla volta. Non garantisce l'ordine tra pipeline (process mode
+  # "unordered" di default): per questo si pusha la punta di main al momento
+  # del job e non $CI_COMMIT_SHA, così un job vecchio che parte dopo uno nuovo
+  # trova GitHub già aggiornato invece di fallire con un non-fast-forward.
+  resource_group: github-mirror
+  interruptible: false
+  variables:
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0" # storia completa: un clone shallow non si può pushare
+    GITHUB_MIRROR_REPO: git@github.com:cnr-ilc/h2iosc_llod_platform.git
+    # Host key ed25519 di GitHub, fissata per non fidarsi alla cieca di ssh-keyscan
+    # (https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)
+    GITHUB_HOST_KEY: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+  before_script:
+    - apk add --no-cache git openssh-client
+    - |
+      if [ -z "${GITHUB_MIRROR_SSH_KEY:-}" ] || [ ! -f "$GITHUB_MIRROR_SSH_KEY" ]; then
+        echo "GITHUB_MIRROR_SSH_KEY mancante o non di tipo File (è Protected: il branch deve essere protetto)" >&2
+        exit 1
+      fi
+    - mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+    # Copia normalizzata: permessi 600, niente CR, newline finale garantito
+    - (umask 077 && { tr -d '\r' < "$GITHUB_MIRROR_SSH_KEY"; echo; } > "$HOME/.ssh/github_mirror")
+    - echo "$GITHUB_HOST_KEY" > "$HOME/.ssh/known_hosts_github"
+  script:
+    # Percorsi espliciti: ssh cerca ~/.ssh nella home di /etc/passwd, non in $HOME
+    - export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/github_mirror -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts_github -o StrictHostKeyChecking=yes"
+    # refs/remotes/origin/<branch> è la punta di main scaricata dal runner all'avvio del job
+    - git push "$GITHUB_MIRROR_REPO" "refs/remotes/origin/$CI_DEFAULT_BRANCH:refs/heads/$CI_DEFAULT_BRANCH"
