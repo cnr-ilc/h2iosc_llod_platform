@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Versioni fissate: aggiornarle qui (PHP 8.5.12 = fix CVE-2026-109618 / CVE-2026-109619)
-ARG PHP_IMAGE=serversideup/php:8.5.12-fpm-nginx-trixie-v5.0.5
+ARG PHP_IMAGE=serversideup/php:8.5.13-fpm-nginx-trixie-v5.1.5
 ARG BUN_IMAGE=oven/bun:1.4.4
 
 ############################################
